@@ -288,11 +288,11 @@ solution "OpenFBX"
 	
 
 project "openfbx"
-	kind "ConsoleApp"
+	kind "WindowedApp"
 
 	debugdir ("../runtime")
 	
-	files { "../src/**.c", "../src/**.cpp", "../src/**.h", "genie.lua" }
+	files { "../src/**.c", "../src/**.cpp", "../demo/**.cpp", "../demo/**.h", "../src/**.h", "genie.lua" }
 	defaultConfigurations()
 
 	defines {"_CRT_SECURE_NO_WARNINGS", "_HAS_ITERATOR_DEBUGGING=0" }

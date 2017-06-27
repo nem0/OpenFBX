@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -20,28 +21,6 @@ struct Vec3
 struct Vec3d
 {
 	double x, y, z;
-};
-
-
-struct DataView
-{
-	const u8* begin;
-	const u8* end;
-
-	bool operator!=(const char* rhs) const { return !(*this == rhs); }
-
-	bool operator==(const char* rhs) const
-	{
-		const char* c = rhs;
-		const char* c2 = (const char*)begin;
-		while (*c && c2 != (const char*)end)
-		{
-			if (*c != *c2) return 0;
-			++c;
-			++c2;
-		}
-		return c2 == (const char*)end && *c == '\0';
-	}
 };
 
 
@@ -63,20 +42,37 @@ struct Cursor
 };
 
 
-struct Property
+struct Property : IProperty
 {
+	~Property() { delete next; }
+	Type getType() const override { return (Type)type; }
+	IProperty* getNext() const override { return next; }
+	DataView getValue() const override { return value; }
+
 	u8 type;
 	DataView value;
-	Property* next;
+	Property* next = nullptr;
 };
 
 
-struct Node
+struct Node : INode
 {
+	~Node()
+	{
+		delete child;
+		delete sibling;
+		delete first_property;
+	}
+
+	INode* getFirstChild() const override { return child; }
+	INode* getSibling() const override { return sibling; }
+	DataView getID() const override { return id; }
+	IProperty* getFirstProperty() const override { return first_property; }
+
 	DataView id;
-	Node* child;
-	Node* sibling;
-	Property* first_property;
+	Node* child = nullptr;
+	Node* sibling = nullptr;
+	Property* first_property = nullptr;
 };
 
 
@@ -328,10 +324,10 @@ struct Scene : IScene
 	};
 
 
-	void destroy() override
-	{
-		delete this;
-	}
+	INode* getRoot() const override { return m_root.get(); }
+
+
+	void destroy() override { delete this; }
 
 
 	bool saveAsOBJ(const char* path) const override
@@ -340,7 +336,7 @@ struct Scene : IScene
 		if (!fp) return false;
 		int obj_idx = 0;
 		int indices_offset = 0;
-		for (auto iter : object_map)
+		for (auto iter : m_object_map)
 		{
 			if (iter.second.object == nullptr) continue;
 			if (iter.second.object->getType() != IObject::MESH) continue;
@@ -380,7 +376,9 @@ struct Scene : IScene
 	}
 
 
-	std::unordered_map<u64, Object> object_map;
+	std::unique_ptr<Node> m_root;
+	std::unordered_map<u64, Object> m_object_map;
+	std::vector<u8> m_data;
 };
 
 
@@ -393,7 +391,7 @@ void parseObjects(Node* root, Scene* scene)
 	while (object)
 	{
 		u64 uuid = getNodeUUID(*object);
-		scene->object_map[uuid] = {object, nullptr};
+		scene->m_object_map[uuid] = {object, nullptr};
 		object = object->sibling;
 	}
 }
@@ -478,8 +476,8 @@ Mesh* parseMesh(const Scene& scene, Node* node)
 	Node* polys_node = findFirstNode(node, "PolygonVertexIndex");
 	if (!polys_node || !polys_node->first_property) return nullptr;
 
-	//Node* normals_node = findFirstNode(node, "LayerElementNormal");
-	//Node* uvs_node = findFirstNode(node, "LayerElementUV");
+	// Node* normals_node = findFirstNode(node, "LayerElementNormal");
+	// Node* uvs_node = findFirstNode(node, "LayerElementUV");
 
 	Mesh* mesh = new Mesh;
 
@@ -492,14 +490,14 @@ Mesh* parseMesh(const Scene& scene, Node* node)
 
 void parseMeshes(Scene* scene)
 {
-	for (auto iter : scene->object_map)
+	for (auto iter : scene->m_object_map)
 	{
 		if (iter.second.node->id != "Geometry") continue;
 
 		Property* last_prop = getLastProperty(iter.second.node);
 		if (last_prop && last_prop->value == "Mesh")
 		{
-			scene->object_map[iter.first].object = parseMesh(*scene, iter.second.node);
+			scene->m_object_map[iter.first].object = parseMesh(*scene, iter.second.node);
 		}
 	}
 }
@@ -508,7 +506,10 @@ void parseMeshes(Scene* scene)
 IScene* load(const u8* data, size_t size)
 {
 	Scene* scene = new Scene;
-	Node* root = ofbx::tokenize(data, size);
+	scene->m_data.resize(size);
+	memcpy(&scene->m_data[0], data, size);
+	Node* root = ofbx::tokenize(&scene->m_data[0], size);
+	scene->m_root = std::unique_ptr<Node>{root};
 	ofbx::parseTemplates(root);
 	ofbx::parseObjects(root, scene);
 	ofbx::parseMeshes(scene);
