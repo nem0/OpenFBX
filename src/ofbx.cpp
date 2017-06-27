@@ -360,6 +360,7 @@ struct Scene : IScene
 
 	static int getNormalIndex(const Mesh& mesh, int vertex_idx, int idx)
 	{
+		assert(mesh.normals_indices.empty());
 		if (mesh.normals_mapping == Mesh::BY_POLYGON_VERTEX)
 		{
 			return idx;
