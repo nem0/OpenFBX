@@ -63,14 +63,61 @@ void showGUI(ofbx::INode& node)
 }
 
 
+void showArrayDouble(ofbx::IProperty& prop)
+{
+	if (!ImGui::CollapsingHeader("Double Array")) return;
+
+	static bool as_vec3 = false;
+	ImGui::Checkbox("As Vec3", &as_vec3);
+
+	int count = prop.getCount();
+
+	ImGui::Text("Count: %d", count);
+	std::vector<double> tmp;
+	tmp.resize(count);
+	prop.getValues(&tmp[0]);
+	if (as_vec3)
+	{
+		for (int i = 0; i < tmp.size(); i += 3)
+		{
+			ImGui::Text("%f %f %f", tmp[i], tmp[i + 1], tmp[i + 2]);
+		}
+		return;
+	}
+	for (double v : tmp)
+	{
+		ImGui::Text("%f", v);
+	}
+}
+
+
+void showArrayInt(ofbx::IProperty& prop)
+{
+	if (!ImGui::CollapsingHeader("Int Array")) return;
+
+	int count = prop.getCount();
+	ImGui::Text("Count: %d", count);
+	std::vector<int> tmp;
+	tmp.resize(count);
+	prop.getValues(&tmp[0]);
+	for (int v : tmp)
+	{
+		ImGui::Text("%d", v);
+	}
+}
+
+
 void showGUI(ofbx::IProperty& prop)
 {
+	ImGui::PushID((void*)&prop);
 	char tmp[256];
 	switch (prop.getType())
 	{
 		case ofbx::IProperty::FLOAT: ImGui::Text("Float: %f", *(float*)prop.getValue().begin); break;
 		case ofbx::IProperty::DOUBLE: ImGui::Text("Double: %f", *(double*)prop.getValue().begin); break;
 		case ofbx::IProperty::INTEGER: ImGui::Text("Integer: %d", *(int*)prop.getValue().begin); break;
+		case ofbx::IProperty::ARRAY_DOUBLE: showArrayDouble(prop); break;
+		case ofbx::IProperty::ARRAY_INT: showArrayInt(prop); break;
 		case ofbx::IProperty::STRING:
 			toString(prop.getValue(), tmp);
 			ImGui::Text("String: %s", tmp);
@@ -80,6 +127,7 @@ void showGUI(ofbx::IProperty& prop)
 			break;
 	}
 
+	ImGui::PopID();
 	if (prop.getNext()) showGUI(*prop.getNext());
 }
 

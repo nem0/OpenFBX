@@ -52,11 +52,16 @@ struct IProperty
 		STRING = 'S',
 		FLOAT = 'F',
 		DOUBLE = 'D',
+		ARRAY_DOUBLE = 'd',
+		ARRAY_INT = 'i',
 	};
 	virtual ~IProperty() {}
 	virtual Type getType() const = 0;
 	virtual IProperty* getNext() const = 0;
 	virtual DataView getValue() const = 0;
+	virtual int getCount() const = 0;
+	virtual void getValues(double* values) const = 0;
+	virtual void getValues(int* values) const = 0;
 };
 
 
