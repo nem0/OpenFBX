@@ -14,6 +14,12 @@ static_assert(sizeof(u32) == 4, "u32 is not 4 bytes");
 static_assert(sizeof(u64) == 8, "u64 is not 8 bytes");
 
 
+struct Matrix
+{
+	double m[16];
+};
+
+
 struct Vec2
 {
 	double x, y;
@@ -71,8 +77,8 @@ struct IElementProperty
 	virtual IElementProperty* getNext() const = 0;
 	virtual DataView getValue() const = 0;
 	virtual int getCount() const = 0;
-	virtual void getValues(double* values) const = 0;
-	virtual void getValues(int* values) const = 0;
+	virtual void getValues(double* values, int max_size) const = 0;
+	virtual void getValues(int* values, int max_size) const = 0;
 };
 
 
@@ -139,12 +145,16 @@ struct LimbNode : Object
 };
 
 
-struct Null : Object
+struct Cluster : Object
 {
-	Null(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	Cluster(const Scene& _scene, const IElement& _element);
+
+	virtual const int* getIndices() const = 0;
+	virtual int getIndicesCount() const = 0;
+	virtual const double* getWeights() const = 0;
+	virtual int getWeightsCount() const = 0;
+	virtual Matrix getTransformMatrix() const = 0;
+	virtual Matrix getTransformLinkMatrix() const = 0;
 };
 
 

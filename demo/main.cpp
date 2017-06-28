@@ -102,7 +102,7 @@ void showArrayDouble(ofbx::IElementProperty& prop)
 	ImGui::Text("Count: %d", count);
 	std::vector<double> tmp;
 	tmp.resize(count);
-	prop.getValues(&tmp[0]);
+	prop.getValues(&tmp[0], int(sizeof(tmp[0]) * tmp.size()));
 	if (as_vec3)
 	{
 		for (int i = 0; i < tmp.size(); i += 3)
@@ -126,7 +126,7 @@ void showArrayInt(ofbx::IElementProperty& prop)
 	ImGui::Text("Count: %d", count);
 	std::vector<int> tmp;
 	tmp.resize(count);
-	prop.getValues(&tmp[0]);
+	prop.getValues(&tmp[0], int(sizeof(tmp[0]) * tmp.size()));
 	for (int v : tmp)
 	{
 		ImGui::Text("%d", v);

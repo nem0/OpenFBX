@@ -59,7 +59,8 @@ bool DataView::operator==(const char* rhs) const
 
 
 struct Property;
-template <typename T> void parseBinaryArray(const Property& property, T* out);
+template <typename T> void parseBinaryArrayRaw(const Property& property, T* out, int max_size);
+template <typename T> void parseBinaryArray(Property& property, std::vector<T>* out);
 
 
 struct Property : IElementProperty
@@ -74,14 +75,14 @@ struct Property : IElementProperty
 		return int(*(u32*)value.begin);
 	}
 
-	void getValues(double* values) const override
+	void getValues(double* values, int max_size) const override
 	{
-		parseBinaryArray(*this, values);
+		parseBinaryArrayRaw(*this, values, max_size);
 	}
 
-	void getValues(int* values) const override
+	void getValues(int* values, int max_size) const override
 	{
-		parseBinaryArray(*this, values);
+		parseBinaryArrayRaw(*this, values, max_size);
 	}
 
 	u8 type;
@@ -393,10 +394,10 @@ struct LimbNodeImpl : LimbNode
 };
 
 
-struct NullImpl : Null
+struct NullImpl : Object
 {
 	NullImpl(const Scene& _scene, const IElement& _element)
-		: Null(_scene, _element)
+		: Object(_scene, _element)
 	{
 	}
 	Type getType() const override { return NULL_NODE; }
@@ -417,12 +418,31 @@ struct NodeAttributeImpl : NodeAttribute
 };
 
 
-struct ClusterImpl : Object
+
+Cluster::Cluster(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{
+}
+
+
+struct ClusterImpl : Cluster
 {
 	ClusterImpl(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
+		: Cluster(_scene, _element)
 	{
 	}
+
+	const int* getIndices() const override { return &indices[0]; }
+	int getIndicesCount() const override { return (int)indices.size(); }
+	const double* getWeights() const override { return &weights[0]; }
+	int getWeightsCount() const override { return (int)weights.size(); }
+	Matrix getTransformMatrix() const { return transform_matrix; }
+	Matrix getTransformLinkMatrix() const { return transform_link_matrix; }
+
+	std::vector<int> indices;
+	std::vector<double> weights;
+	Matrix transform_matrix;
+	Matrix transform_link_matrix;
 	Type getType() const override { return CLUSTER; }
 };
 
@@ -604,14 +624,30 @@ T* parse(const Scene& scene, Element& element)
 }
 
 
-Object* parseNull(const Scene& scene, Element& element)
+Object* parseCluster(const Scene& scene, Element& element)
 {
-	assert(element.first_property);
-	assert(element.first_property->next);
-	assert(element.first_property->next->next);
-	assert(element.first_property->next->next->value == "Null");
-
-	NullImpl* obj = new NullImpl(scene, element);
+	ClusterImpl* obj = new ClusterImpl(scene, element);
+	
+	Element* indexes = findChild(element, "Indexes");
+	if (indexes && indexes->first_property)
+	{
+		parseBinaryArray(*indexes->first_property, &obj->indices);
+	}
+	Element* weights = findChild(element, "Weights");
+	if (weights && weights->first_property)
+	{
+		parseBinaryArray(*weights->first_property, &obj->weights);
+	}
+	Element* transform_link = findChild(element, "TransformLink");
+	if (transform_link && transform_link->first_property)
+	{
+		parseBinaryArrayRaw(*transform_link->first_property, &obj->transform_link_matrix, sizeof(obj->transform_link_matrix));
+	}
+	Element* transform = findChild(element, "Transform");
+	if (transform && transform->first_property)
+	{
+		parseBinaryArrayRaw(*transform->first_property, &obj->transform_matrix, sizeof(obj->transform_matrix));
+	}
 	return obj;
 }
 
@@ -685,7 +721,7 @@ u32 getArrayCount(const Property& property)
 }
 
 
-template <typename T> void parseBinaryArray(const Property& property, T* out)
+template <typename T> void parseBinaryArrayRaw(const Property& property, T* out, int max_size)
 {
 	assert(out);
 	u32 count = getArrayCount(property);
@@ -704,10 +740,12 @@ template <typename T> void parseBinaryArray(const Property& property, T* out)
 	const u8* data = property.value.begin + sizeof(u32) * 3;
 	if (enc == 0)
 	{
+		assert((int)len <= max_size);
 		memcpy(out, data, len);
 	}
 	else if (enc == 1)
 	{
+		assert(int(elem_size * count) <= max_size);
 		decompress(data, len, (u8*)out, elem_size * count);
 	}
 	else
@@ -732,7 +770,7 @@ template <typename T> void parseBinaryArray(Property& property, std::vector<T>* 
 	int elem_count = sizeof(T) / elem_size;
 	out->resize(count / elem_count);
 
-	parseBinaryArray(property, &(*out)[0]);
+	parseBinaryArrayRaw(property, &(*out)[0], int(sizeof((*out)[0]) * out->size()));
 }
 
 
@@ -913,7 +951,7 @@ void parseObjects(Element& root, Scene* scene)
 			if (class_prop)
 			{
 				if (class_prop->getValue() == "Cluster")
-					scene->m_object_map[iter.first].object = parse<ClusterImpl>(*scene, *iter.second.element);
+					scene->m_object_map[iter.first].object = parseCluster(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Skin")
 					scene->m_object_map[iter.first].object = parse<SkinImpl>(*scene, *iter.second.element);
 			}
@@ -933,7 +971,7 @@ void parseObjects(Element& root, Scene* scene)
 				else if (class_prop->getValue() == "LimbNode")
 					scene->m_object_map[iter.first].object = parseLimbNode(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Null")
-					scene->m_object_map[iter.first].object = parseNull(*scene, *iter.second.element);
+					scene->m_object_map[iter.first].object = parse<NullImpl>(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "Texture")
