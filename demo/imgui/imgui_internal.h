@@ -44,7 +44,7 @@ struct ImGuiWindow;
 
 typedef int ImGuiLayoutType;      // enum ImGuiLayoutType_
 typedef int ImGuiButtonFlags;     // enum ImGuiButtonFlags_
-typedef int ImGuiTreeNodeFlags;   // enum ImGuiTreeNodeFlags_
+typedef int ImGuiTreeElementFlags;   // enum ImGuiTreeElementFlags_
 typedef int ImGuiSliderFlags;     // enum ImGuiSliderFlags_
 
 //-------------------------------------------------------------------------
@@ -382,7 +382,7 @@ struct ImGuiContext
     ImVector<ImGuiPopupRef> OpenPopupStack;                     // Which popups are open (persistent)
     ImVector<ImGuiPopupRef> CurrentPopupStack;                  // Which level of BeginPopup() we are in (reset every frame)
 
-    // Storage for SetNexWindow** and SetNextTreeNode*** functions
+    // Storage for SetNexWindow** and SetNextTreeElement*** functions
     ImVec2                  SetNextWindowPosVal;
     ImVec2                  SetNextWindowSizeVal;
     ImVec2                  SetNextWindowContentSizeVal;
@@ -396,8 +396,8 @@ struct ImGuiContext
     void*                       SetNextWindowSizeConstraintCallbackUserData;
     bool                    SetNextWindowSizeConstraint;
     bool                    SetNextWindowFocus;
-    bool                    SetNextTreeNodeOpenVal;
-    ImGuiSetCond            SetNextTreeNodeOpenCond;
+    bool                    SetNextTreeElementOpenVal;
+    ImGuiSetCond            SetNextTreeElementOpenCond;
 
     // Render
     ImDrawData              RenderDrawData;                     // Main ImDrawData instance to pass render information to the user
@@ -475,8 +475,8 @@ struct ImGuiContext
         SetNextWindowFocus = false;
         SetNextWindowSizeConstraintCallback = NULL;
         SetNextWindowSizeConstraintCallbackUserData = NULL;
-        SetNextTreeNodeOpenVal = false;
-        SetNextTreeNodeOpenCond = 0;
+        SetNextTreeElementOpenVal = false;
+        SetNextTreeElementOpenCond = 0;
 
         ScalarAsInputTextId = 0;
         DragCurrentValue = 0.0f;
@@ -734,8 +734,8 @@ namespace ImGui
     IMGUI_API bool          InputScalarEx(const char* label, ImGuiDataType data_type, void* data_ptr, void* step_ptr, void* step_fast_ptr, const char* scalar_format, ImGuiInputTextFlags extra_flags);
     IMGUI_API bool          InputScalarAsWidgetReplacement(const ImRect& aabb, const char* label, ImGuiDataType data_type, void* data_ptr, ImGuiID id, int decimal_precision);
 
-    IMGUI_API bool          TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* label, const char* label_end = NULL);
-    IMGUI_API bool          TreeNodeBehaviorIsOpen(ImGuiID id, ImGuiTreeNodeFlags flags = 0);                     // Consume previous SetNextTreeNodeOpened() data, if any. May return true when logging
+    IMGUI_API bool          TreeElementBehavior(ImGuiID id, ImGuiTreeElementFlags flags, const char* label, const char* label_end = NULL);
+    IMGUI_API bool          TreeElementBehaviorIsOpen(ImGuiID id, ImGuiTreeElementFlags flags = 0);                     // Consume previous SetNextTreeElementOpened() data, if any. May return true when logging
     IMGUI_API void          TreePushRawID(ImGuiID id);
 
     IMGUI_API void          PlotEx(ImGuiPlotType plot_type, const char* label, float (*values_getter)(void* data, int idx), void* data, int values_count, int values_offset, const char* overlay_text, float scale_min, float scale_max, ImVec2 graph_size);

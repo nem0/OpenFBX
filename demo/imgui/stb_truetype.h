@@ -606,7 +606,7 @@ struct stbtt_pack_context {
    int   padding;
    unsigned int   h_oversample, v_oversample;
    unsigned char *pixels;
-   void  *nodes;
+   void  *elements;
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -2605,7 +2605,7 @@ typedef struct
 typedef struct
 {
    unsigned char x;
-} stbrp_node;
+} stbrp_element;
 
 struct stbrp_rect
 {
@@ -2613,15 +2613,15 @@ struct stbrp_rect
    int id,w,h,was_packed;
 };
 
-static void stbrp_init_target(stbrp_context *con, int pw, int ph, stbrp_node *nodes, int num_nodes)
+static void stbrp_init_target(stbrp_context *con, int pw, int ph, stbrp_element *elements, int num_elements)
 {
    con->width  = pw;
    con->height = ph;
    con->x = 0;
    con->y = 0;
    con->bottom_y = 0;
-   STBTT__NOTUSED(nodes);
-   STBTT__NOTUSED(num_nodes);   
+   STBTT__NOTUSED(elements);
+   STBTT__NOTUSED(num_elements);   
 }
 
 static void stbrp_pack_rects(stbrp_context *con, stbrp_rect *rects, int num_rects)
@@ -2656,12 +2656,12 @@ static void stbrp_pack_rects(stbrp_context *con, stbrp_rect *rects, int num_rect
 STBTT_DEF int stbtt_PackBegin(stbtt_pack_context *spc, unsigned char *pixels, int pw, int ph, int stride_in_bytes, int padding, void *alloc_context)
 {
    stbrp_context *context = (stbrp_context *) STBTT_malloc(sizeof(*context)            ,alloc_context);
-   int            num_nodes = pw - padding;
-   stbrp_node    *nodes   = (stbrp_node    *) STBTT_malloc(sizeof(*nodes  ) * num_nodes,alloc_context);
+   int            num_elements = pw - padding;
+   stbrp_element    *elements   = (stbrp_element    *) STBTT_malloc(sizeof(*elements  ) * num_elements,alloc_context);
 
-   if (context == NULL || nodes == NULL) {
+   if (context == NULL || elements == NULL) {
       if (context != NULL) STBTT_free(context, alloc_context);
-      if (nodes   != NULL) STBTT_free(nodes  , alloc_context);
+      if (elements   != NULL) STBTT_free(elements  , alloc_context);
       return 0;
    }
 
@@ -2670,13 +2670,13 @@ STBTT_DEF int stbtt_PackBegin(stbtt_pack_context *spc, unsigned char *pixels, in
    spc->height = ph;
    spc->pixels = pixels;
    spc->pack_info = context;
-   spc->nodes = nodes;
+   spc->elements = elements;
    spc->padding = padding;
    spc->stride_in_bytes = stride_in_bytes != 0 ? stride_in_bytes : pw;
    spc->h_oversample = 1;
    spc->v_oversample = 1;
 
-   stbrp_init_target(context, pw-padding, ph-padding, nodes, num_nodes);
+   stbrp_init_target(context, pw-padding, ph-padding, elements, num_elements);
 
    if (pixels)
       STBTT_memset(pixels, 0, pw*ph); // background of 0 around pixels
@@ -2686,7 +2686,7 @@ STBTT_DEF int stbtt_PackBegin(stbtt_pack_context *spc, unsigned char *pixels, in
 
 STBTT_DEF void stbtt_PackEnd  (stbtt_pack_context *spc)
 {
-   STBTT_free(spc->nodes    , spc->user_allocator_context);
+   STBTT_free(spc->elements    , spc->user_allocator_context);
    STBTT_free(spc->pack_info, spc->user_allocator_context);
 }
 

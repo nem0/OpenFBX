@@ -36,13 +36,13 @@ IMGUI_API bool BeginToolbar(const char* str_id, ImVec2 screen_pos, ImVec2 size);
 IMGUI_API void EndToolbar();
 IMGUI_API bool ToolbarButton(ImTextureID texture, const ImVec4& bg_color, const char* tooltip);
 
-IMGUI_API void BeginNode(ImGuiID id, ImVec2 screen_pos);
-IMGUI_API void EndNode(ImVec2& pos);
-IMGUI_API bool NodePin(ImGuiID id, ImVec2 screen_pos);
-IMGUI_API void NodeLink(ImVec2 from, ImVec2 to);
-IMGUI_API ImVec2 GetNodeInputPos(ImGuiID node_id, int input);
-IMGUI_API ImVec2 GetNodeOutputPos(ImGuiID node_id, int output);
-IMGUI_API void NodeSlots(int count, bool input);
+IMGUI_API void BeginElement(ImGuiID id, ImVec2 screen_pos);
+IMGUI_API void EndElement(ImVec2& pos);
+IMGUI_API bool ElementPin(ImGuiID id, ImVec2 screen_pos);
+IMGUI_API void ElementLink(ImVec2 from, ImVec2 to);
+IMGUI_API ImVec2 GetElementInputPos(ImGuiID element_id, int input);
+IMGUI_API ImVec2 GetElementOutputPos(ImGuiID element_id, int output);
+IMGUI_API void ElementSlots(int count, bool input);
 
 
 struct CurveEditor

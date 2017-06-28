@@ -3,8 +3,10 @@
 #include <windows.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <inttypes.h>
 #include <memory>
 #include <vector>
 #pragma comment(lib, "opengl32.lib")
@@ -14,11 +16,11 @@ HWND g_hWnd;
 HDC g_hDC;
 HGLRC g_hRC;
 GLuint g_font_texture;
-static const int MAX_PATH_LENGTH = 256;
-typedef char Path[MAX_PATH_LENGTH];
+typedef char Path[MAX_PATH];
 typedef unsigned int u32;
 ofbx::IScene* g_scene = nullptr;
-ofbx::INode* g_selected_node = nullptr;
+ofbx::IElement* g_selected_element = nullptr;
+ofbx::Object* g_selected_object = nullptr;
 
 
 template <int N>
@@ -31,39 +33,64 @@ void toString(ofbx::DataView view, char (&out)[N])
 }
 
 
-int getPropertyCount(ofbx::IProperty* prop)
+int getPropertyCount(ofbx::IElementProperty* prop)
 {
 	return prop ? getPropertyCount(prop->getNext()) + 1 : 0;
 }
 
 
-void showGUI(ofbx::INode& node)
+template <int N>
+void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 {
-	auto id = node.getID();
-	char label[128];
-	char id_str[128];
-	toString(id, id_str);
-	int property_count = getPropertyCount(node.getFirstProperty());
-	sprintf_s(label, "%s (%d)", id_str, property_count);
-	ImGui::PushID((const void*)id.begin);
-	ImGuiTreeNodeFlags flags = g_selected_node == &node ? ImGuiTreeNodeFlags_Selected : 0;
-	if (!node.getFirstChild()) flags |= ImGuiTreeNodeFlags_Leaf;
-	if (ImGui::TreeNodeEx(label, flags))
+	char tmp[128];
+	switch (prop.getType())
 	{
-		if(ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_node = &node;
-		if (node.getFirstChild()) showGUI(*node.getFirstChild());
+		case ofbx::IElementProperty::DOUBLE: sprintf_s(tmp, "%f", prop.getValue().toDouble()); break;
+		case ofbx::IElementProperty::LONG: sprintf_s(tmp, "%" PRId64, prop.getValue().toLong()); break;
+		case ofbx::IElementProperty::STRING: prop.getValue().toString(tmp); break;
+		default: sprintf_s(tmp, "Type: %c", (char)prop.getType()); break;
+	}
+	strcat_s(out, tmp);
+}
+
+
+void showGUI(ofbx::IElement& element)
+{
+	auto id = element.getID();
+	char label[128];
+	id.toString(label);
+	strcat_s(label, " (");
+	ofbx::IElementProperty* prop = element.getFirstProperty();
+	bool first = true;
+	while (prop)
+	{
+		if(!first)
+			strcat_s(label, ", ");
+		first = false;
+		catProperty(label, *prop);
+		prop = prop->getNext();
+	}
+	strcat_s(label, ")");
+
+	ImGui::PushID((const void*)id.begin);
+	ImGuiTreeElementFlags flags = g_selected_element == &element ? ImGuiTreeElementFlags_Selected : 0;
+	if (!element.getFirstChild()) flags |= ImGuiTreeElementFlags_Leaf;
+	if (ImGui::TreeElementEx(label, flags))
+	{
+		if(ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = &element;
+		if (element.getFirstChild()) showGUI(*element.getFirstChild());
 		ImGui::TreePop();
 	}
 	else
 	{
-		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_node = &node;
+		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = &element;
 	}
 	ImGui::PopID();
-	if (node.getSibling()) showGUI(*node.getSibling());
+	if (element.getSibling()) showGUI(*element.getSibling());
 }
 
 
-void showArrayDouble(ofbx::IProperty& prop)
+void showArrayDouble(ofbx::IElementProperty& prop)
 {
 	if (!ImGui::CollapsingHeader("Double Array")) return;
 
@@ -91,7 +118,7 @@ void showArrayDouble(ofbx::IProperty& prop)
 }
 
 
-void showArrayInt(ofbx::IProperty& prop)
+void showArrayInt(ofbx::IElementProperty& prop)
 {
 	if (!ImGui::CollapsingHeader("Int Array")) return;
 
@@ -107,18 +134,19 @@ void showArrayInt(ofbx::IProperty& prop)
 }
 
 
-void showGUI(ofbx::IProperty& prop)
+void showGUI(ofbx::IElementProperty& prop)
 {
 	ImGui::PushID((void*)&prop);
 	char tmp[256];
 	switch (prop.getType())
 	{
-		case ofbx::IProperty::FLOAT: ImGui::Text("Float: %f", *(float*)prop.getValue().begin); break;
-		case ofbx::IProperty::DOUBLE: ImGui::Text("Double: %f", *(double*)prop.getValue().begin); break;
-		case ofbx::IProperty::INTEGER: ImGui::Text("Integer: %d", *(int*)prop.getValue().begin); break;
-		case ofbx::IProperty::ARRAY_DOUBLE: showArrayDouble(prop); break;
-		case ofbx::IProperty::ARRAY_INT: showArrayInt(prop); break;
-		case ofbx::IProperty::STRING:
+		case ofbx::IElementProperty::LONG: ImGui::Text("Long: %" PRId64, *(ofbx::u64*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::FLOAT: ImGui::Text("Float: %f", *(float*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::DOUBLE: ImGui::Text("Double: %f", *(double*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::INTEGER: ImGui::Text("Integer: %d", *(int*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::ARRAY_DOUBLE: showArrayDouble(prop); break;
+		case ofbx::IElementProperty::ARRAY_INT: showArrayInt(prop); break;
+		case ofbx::IElementProperty::STRING:
 			toString(prop.getValue(), tmp);
 			ImGui::Text("String: %s", tmp);
 			break;
@@ -132,6 +160,125 @@ void showGUI(ofbx::IProperty& prop)
 }
 
 
+void showObjectGUI(ofbx::Object& object)
+{
+	const char* label;
+	switch (object.getType())
+	{
+		case ofbx::Object::GEOMETRY: label = "geometry"; break;
+		case ofbx::Object::MODEL: label = "model"; break;
+		case ofbx::Object::MATERIAL: label = "material"; break;
+		case ofbx::Object::ROOT: label = "root"; break;
+		case ofbx::Object::TEXTURE: label = "texture"; break;
+		case ofbx::Object::NULL_NODE: label = "texture"; break;
+		case ofbx::Object::LIMB_NODE: label = "limb node"; break;
+		case ofbx::Object::NOTE_ATTRIBUTE: label = "node attribute"; break;
+		case ofbx::Object::CLUSTER: label = "cluster"; break;
+		case ofbx::Object::SKIN: label = "skin"; break;
+		default: assert(false); break;
+	}
+	ImGuiTreeElementFlags flags = g_selected_object == &object ? ImGuiTreeElementFlags_Selected : 0;
+	char tmp[128];
+	ofbx::IElementProperty* prop = object.element.getFirstProperty();
+	ofbx::u64 id = prop ? prop->getValue().toLong() : 0;
+	sprintf_s(tmp, "%" PRId64 " %s", id, label);
+	if (ImGui::TreeElementEx(tmp, flags))
+	{
+		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_object = &object;
+		int i = 0;
+		while (ofbx::Object* child = object.resolveObjectLink(i))
+		{
+			showObjectGUI(*child);
+			++i;
+		}
+		ImGui::TreePop();
+	}
+	else
+	{
+		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_object = &object;
+	}
+}
+
+
+void showObjectsGUI(const ofbx::IScene& scene)
+{
+	if (!ImGui::Begin("Objects"))
+	{
+		ImGui::End();
+		return;
+	}
+	ofbx::Object* root = scene.getRoot();
+	if (root) showObjectGUI(*root);
+
+	ImGui::End();
+}
+
+
+bool saveAsOBJ(ofbx::IScene& scene, const char* path)
+{
+	FILE* fp = fopen(path, "wb");
+	if (!fp) return false;
+	int obj_idx = 0;
+	int indices_offset = 0;
+	int normals_offset = 0;
+	int mesh_count = scene.getObjectCount(ofbx::Object::GEOMETRY);
+	for (int i = 0; i < mesh_count; ++i)
+	{
+		fprintf(fp, "o obj%d\ng grp%d\n", i, obj_idx);
+
+		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.getObject(ofbx::Object::GEOMETRY, i);
+		int vertex_count = mesh.getVertexCount();
+		const ofbx::Vec3* vertices = mesh.getVertices();
+		for (int i = 0; i < vertex_count; ++i)
+		{
+			ofbx::Vec3 v = vertices[i];
+			fprintf(fp, "v %f %f %f\n", v.x, v.y, v.z);
+		}
+
+		int index_count = mesh.getIndexCount();
+		std::vector<ofbx::Vec3> normals;
+		normals.resize(index_count);
+		mesh.resolveVertexNormals(&normals[0]);
+
+		for (ofbx::Vec3 n : normals)
+		{
+			fprintf(fp, "vn %f %f %f\n", n.x, n.y, n.z);
+		}
+
+		std::vector<ofbx::Vec2> uvs;
+		uvs.resize(index_count);
+		mesh.resolveVertexUVs(&uvs[0]);
+
+		for (ofbx::Vec2 uv : uvs)
+		{
+			fprintf(fp, "vt %f %f\n", uv.x, uv.y);
+		}
+
+		const int* indices = mesh.getIndices();
+		bool new_face = true;
+		for (int i = 0; i < index_count; ++i)
+		{
+			if (new_face)
+			{
+				fputs("f ", fp);
+				new_face = false;
+			}
+			int idx = indices[i];
+			int vertex_idx = indices_offset + (idx >= 0 ?  idx + 1 : -idx);
+			fprintf(fp, "%d/%d/%d", vertex_idx, normals_offset + i + 1, normals_offset + i + 1);
+			new_face = idx < 0;
+			fputc(new_face ? '\n' : ' ', fp);
+		}
+
+		indices_offset += vertex_count;
+		normals_offset += index_count;
+		++obj_idx;
+	}
+	fclose(fp);
+	return true;
+}
+
+
 void onGUI()
 {
 	auto& io = ImGui::GetIO();
@@ -141,19 +288,21 @@ void onGUI()
 
 	ImGui::NewFrame();
 	ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
-	if (ImGui::BeginDock("Nodes"))
+	if (ImGui::Begin("Elements"))
 	{
-		ofbx::INode* root = g_scene->getRoot();
+		ofbx::IElement* root = g_scene->getRootElement();
 		if (root && root->getFirstChild()) showGUI(*root->getFirstChild());
 	}
-	ImGui::EndDock();
+	ImGui::End();
 
-	if (ImGui::BeginDock("Properties") && g_selected_node)
+	if (ImGui::Begin("Properties") && g_selected_element)
 	{
-		ofbx::IProperty* prop = g_selected_node->getFirstProperty();
+		ofbx::IElementProperty* prop = g_selected_element->getFirstProperty();
 		if(prop) showGUI(*prop);
 	}
-	ImGui::EndDock();
+	ImGui::End();
+
+	showObjectsGUI(*g_scene);
 
 	ImGui::Render();
 }
@@ -397,7 +546,7 @@ bool init()
 	ShowWindow(g_hWnd, SW_SHOW);
 	initImGUI();
 
-	FILE* fp = fopen("a.fbx", "rb");
+	FILE* fp = fopen("c.fbx", "rb");
 	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
@@ -406,6 +555,7 @@ bool init()
 	auto* content = new ofbx::u8[file_size];
 	fread(content, 1, file_size, fp);
 	g_scene = ofbx::load((ofbx::u8*)content, file_size);
+	saveAsOBJ(*g_scene, "out.obj");
 	delete[] content;
 	fclose(fp);
 
@@ -421,10 +571,11 @@ INT WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 	while (!finished)
 	{
 		MSG msg;
-		while (PeekMessage(&msg, g_hWnd, 0, 0, PM_REMOVE))
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
+			if (msg.message == WM_QUIT) finished = true;
 		}
 		onGUI();
 		glClear(GL_COLOR_BUFFER_BIT);

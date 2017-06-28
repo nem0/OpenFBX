@@ -220,15 +220,15 @@ void ImGui::ShowTestWindow(bool* p_open)
         ImGui::Checkbox("No collapse", &no_collapse);
         ImGui::Checkbox("No menu", &no_menu);
 
-        if (ImGui::TreeNode("Style"))
+        if (ImGui::TreeElement("Style"))
         {
             ImGui::ShowStyleEditor();
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Logging"))
+        if (ImGui::TreeElement("Logging"))
         {
-            ImGui::TextWrapped("The logging API redirects all text output so you can easily capture the content of a window or a block. Tree nodes can be automatically expanded. You can also call ImGui::LogText() to output directly to the log without a visual output.");
+            ImGui::TextWrapped("The logging API redirects all text output so you can easily capture the content of a window or a block. Tree elements can be automatically expanded. You can also call ImGui::LogText() to output directly to the log without a visual output.");
             ImGui::LogButtons();
             ImGui::TreePop();
         }
@@ -236,12 +236,12 @@ void ImGui::ShowTestWindow(bool* p_open)
 
     if (ImGui::CollapsingHeader("Widgets"))
     {
-        if (ImGui::TreeNode("Trees"))
+        if (ImGui::TreeElement("Trees"))
         {
-            if (ImGui::TreeNode("Basic trees"))
+            if (ImGui::TreeElement("Basic trees"))
             {
                 for (int i = 0; i < 5; i++)
-                    if (ImGui::TreeNode((void*)(intptr_t)i, "Child %d", i))
+                    if (ImGui::TreeElement((void*)(intptr_t)i, "Child %d", i))
                     {
                         ImGui::Text("blah blah");
                         ImGui::SameLine(); 
@@ -251,29 +251,29 @@ void ImGui::ShowTestWindow(bool* p_open)
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("Advanced, with Selectable nodes"))
+            if (ImGui::TreeElement("Advanced, with Selectable elements"))
             {
-                ShowHelpMarker("This is a more standard looking tree with selectable nodes.\nClick to select, CTRL+Click to toggle, click on arrows or double-click to open.");
+                ShowHelpMarker("This is a more standard looking tree with selectable elements.\nClick to select, CTRL+Click to toggle, click on arrows or double-click to open.");
                 static bool align_label_with_current_x_position = false;
                 ImGui::Checkbox("Align label with current X position)", &align_label_with_current_x_position);
                 ImGui::Text("Hello!");
                 if (align_label_with_current_x_position)
-                    ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());
+                    ImGui::Unindent(ImGui::GetTreeElementToLabelSpacing());
 
                 static int selection_mask = (1 << 2); // Dumb representation of what may be user-side selection state. You may carry selection state inside or outside your objects in whatever format you see fit.
-                int node_clicked = -1;                // Temporary storage of what node we have clicked to process selection at the end of the loop. May be a pointer to your own node type, etc.
+                int element_clicked = -1;                // Temporary storage of what element we have clicked to process selection at the end of the loop. May be a pointer to your own element type, etc.
                 ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize()*3); // Increase spacing to differentiate leaves from expanded contents.
                 for (int i = 0; i < 6; i++)
                 {
                     // Disable the default open on single-click behavior and pass in Selected flag according to our selection state.
-                    ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ((selection_mask & (1 << i)) ? ImGuiTreeNodeFlags_Selected : 0);
+                    ImGuiTreeElementFlags element_flags = ImGuiTreeElementFlags_OpenOnArrow | ImGuiTreeElementFlags_OpenOnDoubleClick | ((selection_mask & (1 << i)) ? ImGuiTreeElementFlags_Selected : 0);
                     if (i < 3)
                     {
-                        // Node
-                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Node %d", i);
+                        // Element
+                        bool element_open = ImGui::TreeElementEx((void*)(intptr_t)i, element_flags, "Selectable Element %d", i);
                         if (ImGui::IsItemClicked()) 
-                            node_clicked = i;
-                        if (node_open)
+                            element_clicked = i;
+                        if (element_open)
                         {
                             ImGui::Text("Blah blah\nBlah Blah");
                             ImGui::TreePop();
@@ -281,29 +281,29 @@ void ImGui::ShowTestWindow(bool* p_open)
                     }
                     else
                     {
-                        // Leaf: The only reason we have a TreeNode at all is to allow selection of the leaf. Otherwise we can use BulletText() or TreeAdvanceToLabelPos()+Text().
-                        ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen, "Selectable Leaf %d", i);
+                        // Leaf: The only reason we have a TreeElement at all is to allow selection of the leaf. Otherwise we can use BulletText() or TreeAdvanceToLabelPos()+Text().
+                        ImGui::TreeElementEx((void*)(intptr_t)i, element_flags | ImGuiTreeElementFlags_Leaf | ImGuiTreeElementFlags_NoTreePushOnOpen, "Selectable Leaf %d", i);
                         if (ImGui::IsItemClicked()) 
-                            node_clicked = i;
+                            element_clicked = i;
                     }
                 }
-                if (node_clicked != -1)
+                if (element_clicked != -1)
                 {
                     // Update selection state. Process outside of tree loop to avoid visual inconsistencies during the clicking-frame.
                     if (ImGui::GetIO().KeyCtrl)
-                        selection_mask ^= (1 << node_clicked);          // CTRL+click to toggle
-                    else //if (!(selection_mask & (1 << node_clicked))) // Depending on selection behavior you want, this commented bit preserve selection when clicking on item that is part of the selection
-                        selection_mask = (1 << node_clicked);           // Click to single-select
+                        selection_mask ^= (1 << element_clicked);          // CTRL+click to toggle
+                    else //if (!(selection_mask & (1 << element_clicked))) // Depending on selection behavior you want, this commented bit preserve selection when clicking on item that is part of the selection
+                        selection_mask = (1 << element_clicked);           // Click to single-select
                 }
                 ImGui::PopStyleVar();
                 if (align_label_with_current_x_position)
-                    ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
+                    ImGui::Indent(ImGui::GetTreeElementToLabelSpacing());
                 ImGui::TreePop();
             }
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Collapsing Headers"))
+        if (ImGui::TreeElement("Collapsing Headers"))
         {
             static bool closable_group = true;
             if (ImGui::CollapsingHeader("Header"))
@@ -320,7 +320,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Bullets"))
+        if (ImGui::TreeElement("Bullets"))
         {
             ImGui::BulletText("Bullet point 1");
             ImGui::BulletText("Bullet point 2\nOn multiple lines");
@@ -329,7 +329,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Colored Text"))
+        if (ImGui::TreeElement("Colored Text"))
         {
             // Using shortcut. You can use PushStyleColor()/PopStyleColor() for more flexibility.
             ImGui::TextColored(ImVec4(1.0f,0.0f,1.0f,1.0f), "Pink");
@@ -338,7 +338,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Word Wrapping"))
+        if (ImGui::TreeElement("Word Wrapping"))
         {
             // Using shortcut. You can use PushTextWrapPos()/PopTextWrapPos() for more flexibility.
             ImGui::TextWrapped("This text should automatically wrap on the edge of the window. The current implementation for text wrapping follows simple rules suitable for English and possibly other languages.");
@@ -366,7 +366,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("UTF-8 Text"))
+        if (ImGui::TreeElement("UTF-8 Text"))
         {
             // UTF-8 test with Japanese characters
             // (needs a suitable font, try Arial Unicode or M+ fonts http://mplus-fonts.sourceforge.jp/mplus-outline-fonts/index-en.html)
@@ -382,7 +382,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Images"))
+        if (ImGui::TreeElement("Images"))
         {
             ImGui::TextWrapped("Below we are displaying the font texture (which is the only texture we have access to in this demo). Use the 'ImTextureID' type as storage to pass pointers or identifier to your own texture data. Hover the texture for a zoomed view!");
             ImVec2 tex_screen_pos = ImGui::GetCursorScreenPos();
@@ -420,9 +420,9 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Selectables"))
+        if (ImGui::TreeElement("Selectables"))
         {
-            if (ImGui::TreeNode("Basic"))
+            if (ImGui::TreeElement("Basic"))
             {
                 static bool selected[4] = { false, true, false, false };
                 ImGui::Selectable("1. I am selectable", &selected[0]);
@@ -434,7 +434,7 @@ void ImGui::ShowTestWindow(bool* p_open)
                         selected[3] = !selected[3];
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNode("Rendering more text into the same block"))
+            if (ImGui::TreeElement("Rendering more text into the same block"))
             {
                 static bool selected[3] = { false, false, false };
                 ImGui::Selectable("main.c", &selected[0]);    ImGui::SameLine(300); ImGui::Text(" 2,345 bytes");
@@ -442,7 +442,7 @@ void ImGui::ShowTestWindow(bool* p_open)
                 ImGui::Selectable("Hello.h", &selected[2]);   ImGui::SameLine(300); ImGui::Text(" 2,345 bytes");
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNode("In columns"))
+            if (ImGui::TreeElement("In columns"))
             {
                 ImGui::Columns(3, NULL, false);
                 static bool selected[16] = { 0 };
@@ -455,7 +455,7 @@ void ImGui::ShowTestWindow(bool* p_open)
                 ImGui::Columns(1);
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNode("Grid"))
+            if (ImGui::TreeElement("Grid"))
             {
                 static bool selected[16] = { true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true };
                 for (int i = 0; i < 16; i++)
@@ -477,7 +477,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Filtered Text Input"))
+        if (ImGui::TreeElement("Filtered Text Input"))
         {
             static char buf1[64] = ""; ImGui::InputText("default", buf1, 64);
             static char buf2[64] = ""; ImGui::InputText("decimal", buf2, 64, ImGuiInputTextFlags_CharsDecimal);
@@ -496,7 +496,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Multi-line Text Input"))
+        if (ImGui::TreeElement("Multi-line Text Input"))
         {
             static bool read_only = false;
             static char text[1024*16] =
@@ -638,7 +638,7 @@ void ImGui::ShowTestWindow(bool* p_open)
         //ImGui::ListBox("##listbox2", &listbox_item_current2, listbox_items, IM_ARRAYSIZE(listbox_items), 4);
         //ImGui::PopItemWidth();
 
-        if (ImGui::TreeNode("Range Widgets"))
+        if (ImGui::TreeElement("Range Widgets"))
         {
             ImGui::Unindent();
 
@@ -651,7 +651,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Multi-component Widgets"))
+        if (ImGui::TreeElement("Multi-component Widgets"))
         {
             ImGui::Unindent();
 
@@ -685,7 +685,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Vertical Sliders"))
+        if (ImGui::TreeElement("Vertical Sliders"))
         {
             ImGui::Unindent();
             const float spacing = 4;
@@ -818,7 +818,7 @@ void ImGui::ShowTestWindow(bool* p_open)
 
     if (ImGui::CollapsingHeader("Layout"))
     {
-        if (ImGui::TreeNode("Child regions"))
+        if (ImGui::TreeElement("Child regions"))
         {
             ImGui::Text("Without border");
             static int line = 50;
@@ -858,7 +858,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Widgets Width"))
+        if (ImGui::TreeElement("Widgets Width"))
         {
             static float f = 0.0f;
             ImGui::Text("PushItemWidth(100)");
@@ -894,7 +894,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Basic Horizontal Layout"))
+        if (ImGui::TreeElement("Basic Horizontal Layout"))
         {
             ImGui::TextWrapped("(Use ImGui::SameLine() to keep adding items to the right of the preceeding item)");
 
@@ -966,7 +966,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Groups"))
+        if (ImGui::TreeElement("Groups"))
         {
             ImGui::TextWrapped("(Using ImGui::BeginGroup()/EndGroup() to layout items. BeginGroup() basically locks the horizontal position. EndGroup() bundles the whole group so that you can use functions such as IsItemHovered() on it.)");
             ImGui::BeginGroup();
@@ -1008,7 +1008,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Text Baseline Alignment"))
+        if (ImGui::TreeElement("Text Baseline Alignment"))
         {
             ImGui::TextWrapped("(This is testing the vertical alignment that occurs on text to keep it at the same baseline as widgets. Lines only composed of text or \"small\" widgets fit in less vertical spaces than lines with normal widgets)");
 
@@ -1043,12 +1043,12 @@ void ImGui::ShowTestWindow(bool* p_open)
             const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
             ImGui::Button("Button##1");
             ImGui::SameLine(0.0f, spacing);
-            if (ImGui::TreeNode("Node##1")) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }    // Dummy tree data
+            if (ImGui::TreeElement("Element##1")) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }    // Dummy tree data
 
-            ImGui::AlignFirstTextHeightToWidgets();         // Vertically align text node a bit lower so it'll be vertically centered with upcoming widget. Otherwise you can use SmallButton (smaller fit).
-            bool node_open = ImGui::TreeNode("Node##2");  // Common mistake to avoid: if we want to SameLine after TreeNode we need to do it before we add child content.
+            ImGui::AlignFirstTextHeightToWidgets();         // Vertically align text element a bit lower so it'll be vertically centered with upcoming widget. Otherwise you can use SmallButton (smaller fit).
+            bool element_open = ImGui::TreeElement("Element##2");  // Common mistake to avoid: if we want to SameLine after TreeElement we need to do it before we add child content.
             ImGui::SameLine(0.0f, spacing); ImGui::Button("Button##2");
-            if (node_open) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }   // Dummy tree data
+            if (element_open) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }   // Dummy tree data
 
             // Bullet
             ImGui::Button("Button##3");
@@ -1056,13 +1056,13 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::BulletText("Bullet text");
 
             ImGui::AlignFirstTextHeightToWidgets();
-            ImGui::BulletText("Node");
+            ImGui::BulletText("Element");
             ImGui::SameLine(0.0f, spacing); ImGui::Button("Button##4");
 
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Scrolling"))
+        if (ImGui::TreeElement("Scrolling"))
         {
             ImGui::TextWrapped("(Use SetScrollHere() or SetScrollFromPosY() to scroll to a given position.)");
             static bool track = true;
@@ -1101,7 +1101,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Horizontal Scrolling"))
+        if (ImGui::TreeElement("Horizontal Scrolling"))
         {
             ImGui::Bullet(); ImGui::TextWrapped("Horizontal scrolling for a window has to be enabled explicitly via the ImGuiWindowFlags_HorizontalScrollbar flag.");
             ImGui::Bullet(); ImGui::TextWrapped("You may want to explicitly specify content width by calling SetNextWindowContentWidth() before Begin().");
@@ -1144,7 +1144,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Clipping"))
+        if (ImGui::TreeElement("Clipping"))
         {
             static ImVec2 size(100, 100), offset(50, 20);
             ImGui::TextWrapped("On a per-widget basis we are occasionally clipping text CPU-side if it won't fit in its frame. Otherwise we are doing coarser clipping + passing a scissor rectangle to the renderer. The system is designed to try minimizing both execution and CPU/GPU rendering cost.");
@@ -1162,7 +1162,7 @@ void ImGui::ShowTestWindow(bool* p_open)
 
     if (ImGui::CollapsingHeader("Popups & Modal windows"))
     {
-        if (ImGui::TreeNode("Popups"))
+        if (ImGui::TreeElement("Popups"))
         {
             ImGui::TextWrapped("When a popup is active, it inhibits interacting with windows that are behind the popup. Clicking outside the popup closes it.");
 
@@ -1244,7 +1244,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Context menus"))
+        if (ImGui::TreeElement("Context menus"))
         {
             static float value = 0.5f;
             ImGui::Text("Value = %.3f (<-- right-click here)", value);
@@ -1270,7 +1270,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Modals"))
+        if (ImGui::TreeElement("Modals"))
         {
             ImGui::TextWrapped("Modal windows are like popups but the user cannot close them by clicking outside the window.");
 
@@ -1323,7 +1323,7 @@ void ImGui::ShowTestWindow(bool* p_open)
     if (ImGui::CollapsingHeader("Columns"))
     {
         // Basic columns
-        if (ImGui::TreeNode("Basic"))
+        if (ImGui::TreeElement("Basic"))
         {
             ImGui::Text("Without border:");
             ImGui::Columns(3, "mycolumns3", false);  // 3-ways, no border
@@ -1368,7 +1368,7 @@ void ImGui::ShowTestWindow(bool* p_open)
 
         // Scrolling columns
         /*
-        if (ImGui::TreeNode("Scrolling"))
+        if (ImGui::TreeElement("Scrolling"))
         {
             ImGui::BeginChild("##header", ImVec2(0, ImGui::GetTextLineHeightWithSpacing()+ImGui::GetStyle().ItemSpacing.y));
             ImGui::Columns(3);
@@ -1393,7 +1393,7 @@ void ImGui::ShowTestWindow(bool* p_open)
         */
 
         // Create multiple items in a same cell before switching to next column
-        if (ImGui::TreeNode("Mixed items"))
+        if (ImGui::TreeElement("Mixed items"))
         {
             ImGui::Columns(3, "mixed");
             ImGui::Separator();
@@ -1424,7 +1424,7 @@ void ImGui::ShowTestWindow(bool* p_open)
         }
 
         // Word wrapping
-        if (ImGui::TreeNode("Word-wrapping"))
+        if (ImGui::TreeElement("Word-wrapping"))
         {
             ImGui::Columns(2, "word-wrapping");
             ImGui::Separator();
@@ -1438,7 +1438,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Borders"))
+        if (ImGui::TreeElement("Borders"))
         {
             static bool h_borders = true;
             static bool v_borders = true;
@@ -1457,14 +1457,14 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        bool node_open = ImGui::TreeNode("Tree within single cell");
-        ImGui::SameLine(); ShowHelpMarker("NB: Tree node must be poped before ending the cell.\nThere's no storage of state per-cell.");
-        if (node_open)
+        bool element_open = ImGui::TreeElement("Tree within single cell");
+        ImGui::SameLine(); ShowHelpMarker("NB: Tree element must be poped before ending the cell.\nThere's no storage of state per-cell.");
+        if (element_open)
         {
             ImGui::Columns(2, "tree items");
             ImGui::Separator();
-            if (ImGui::TreeNode("Hello")) { ImGui::BulletText("Sailor"); ImGui::TreePop(); } ImGui::NextColumn();
-            if (ImGui::TreeNode("Bonjour")) { ImGui::BulletText("Marin"); ImGui::TreePop(); } ImGui::NextColumn();
+            if (ImGui::TreeElement("Hello")) { ImGui::BulletText("Sailor"); ImGui::TreePop(); } ImGui::NextColumn();
+            if (ImGui::TreeElement("Bonjour")) { ImGui::BulletText("Marin"); ImGui::TreePop(); } ImGui::NextColumn();
             ImGui::Columns(1);
             ImGui::Separator();
             ImGui::TreePop();
@@ -1488,7 +1488,7 @@ void ImGui::ShowTestWindow(bool* p_open)
 
     if (ImGui::CollapsingHeader("Keyboard, Mouse & Focus"))
     {
-        if (ImGui::TreeNode("Tabbing"))
+        if (ImGui::TreeElement("Tabbing"))
         {
             ImGui::Text("Use TAB/SHIFT+TAB to cycle through keyboard editable fields.");
             static char buf[32] = "dummy";
@@ -1503,7 +1503,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Focus from code"))
+        if (ImGui::TreeElement("Focus from code"))
         {
             bool focus_1 = ImGui::Button("Focus on 1"); ImGui::SameLine();
             bool focus_2 = ImGui::Button("Focus on 2"); ImGui::SameLine();
@@ -1532,7 +1532,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Dragging"))
+        if (ImGui::TreeElement("Dragging"))
         {
             ImGui::TextWrapped("You can use ImGui::GetItemActiveDragDelta() to query for the dragged amount on any widget.");
             ImGui::Button("Drag Me");
@@ -1551,7 +1551,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Keyboard & Mouse State"))
+        if (ImGui::TreeElement("Keyboard & Mouse State"))
         {
             ImGuiIO& io = ImGui::GetIO();
 
@@ -1582,7 +1582,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Mouse cursors"))
+        if (ImGui::TreeElement("Mouse cursors"))
         {
             ImGui::TextWrapped("Your application can render a different mouse cursor based on what ImGui::GetMouseCursor() returns. You can also set io.MouseDrawCursor to ask ImGui to render the cursor for you in software.");
             ImGui::Checkbox("io.MouseDrawCursor", &ImGui::GetIO().MouseDrawCursor);
@@ -1620,7 +1620,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
 
     ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.55f);
 
-    if (ImGui::TreeNode("Rendering"))
+    if (ImGui::TreeElement("Rendering"))
     {
         ImGui::Checkbox("Anti-aliased lines", &style.AntiAliasedLines);
         ImGui::Checkbox("Anti-aliased shapes", &style.AntiAliasedShapes);
@@ -1632,7 +1632,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Sizes"))
+    if (ImGui::TreeElement("Sizes"))
     {
         ImGui::SliderFloat2("WindowPadding", (float*)&style.WindowPadding, 0.0f, 20.0f, "%.0f");
         ImGui::SliderFloat("WindowRounding", &style.WindowRounding, 0.0f, 16.0f, "%.0f");
@@ -1650,7 +1650,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Colors"))
+    if (ImGui::TreeElement("Colors"))
     {
         static int output_dest = 0;
         static bool output_only_modified = false;
@@ -1707,11 +1707,11 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size))
+    if (ImGui::TreeElement("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size))
     {
         ImGui::SameLine(); ShowHelpMarker("Tip: Load fonts with io.Fonts->AddFontFromFileTTF()\nbefore calling io.Fonts->GetTex* functions.");
         ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-        if (ImGui::TreeNode("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
+        if (ImGui::TreeElement("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
         {
             ImGui::Image(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0,0), ImVec2(1,1), ImColor(255,255,255,255), ImColor(255,255,255,128));
             ImGui::TreePop();
@@ -1726,7 +1726,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
             ImGui::PushFont(font);
             ImGui::Text("The quick brown fox jumps over the lazy dog");
             ImGui::PopFont();
-            if (ImGui::TreeNode("Details"))
+            if (ImGui::TreeElement("Details"))
             {
                 ImGui::DragFloat("font scale", &font->Scale, 0.005f, 0.3f, 2.0f, "%.1f");             // scale only this font
                 ImGui::Text("Ascent: %f, Descent: %f, Height: %f", font->Ascent, font->Descent, font->Ascent - font->Descent);
@@ -2451,13 +2451,13 @@ static void ShowExampleAppPropertyEditor(bool* p_open)
         static void ShowDummyObject(const char* prefix, int uid)
         {
             ImGui::PushID(uid);                      // Use object uid as identifier. Most commonly you could also use the object pointer as a base ID.
-            ImGui::AlignFirstTextHeightToWidgets();  // Text and Tree nodes are less high than regular widgets, here we add vertical spacing to make the tree lines equal high.
-            bool node_open = ImGui::TreeNode("Object", "%s_%u", prefix, uid);
+            ImGui::AlignFirstTextHeightToWidgets();  // Text and Tree elements are less high than regular widgets, here we add vertical spacing to make the tree lines equal high.
+            bool element_open = ImGui::TreeElement("Object", "%s_%u", prefix, uid);
             ImGui::NextColumn();
             ImGui::AlignFirstTextHeightToWidgets();
             ImGui::Text("my sailor is rich");
             ImGui::NextColumn();
-            if (node_open)
+            if (element_open)
             {
                 static float dummy_members[8] = { 0.0f,0.0f,1.0f,3.1416f,100.0f,999.0f };
                 for (int i = 0; i < 8; i++)
