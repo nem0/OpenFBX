@@ -14,12 +14,6 @@ static_assert(sizeof(u32) == 4, "u32 is not 4 bytes");
 static_assert(sizeof(u64) == 8, "u64 is not 8 bytes");
 
 
-struct Matrix
-{
-	double m[16];
-};
-
-
 struct Vec2
 {
 	double x, y;
@@ -29,6 +23,24 @@ struct Vec2
 struct Vec3
 {
 	double x, y, z;
+};
+
+
+struct Vec4
+{
+	double x, y, z, w;
+};
+
+
+struct Matrix
+{
+	double m[16]; // last 4 are translation
+};
+
+
+struct Quat
+{
+	double x, y, z, w;
 };
 
 
@@ -42,6 +54,7 @@ struct DataView
 
 	u64 toLong() const;
 	double toDouble() const;
+	
 	template <int N>
 	void toString(char(&out)[N])
 	{
@@ -57,8 +70,6 @@ struct DataView
 	}
 };
 
-
-struct Scene;
 
 struct IElementProperty
 {
@@ -91,6 +102,9 @@ struct IElement
 };
 
 
+struct Scene;
+
+
 struct Object
 {
 	enum Type
@@ -98,7 +112,7 @@ struct Object
 		ROOT,
 		GEOMETRY,
 		MATERIAL,
-		MODEL,
+		MESH,
 		TEXTURE,
 		LIMB_NODE,
 		NULL_NODE,
@@ -107,46 +121,45 @@ struct Object
 		SKIN
 	};
 
-	Object(const Scene& _scene, const IElement& _element)
-		: scene(_scene)
-		, element(_element)
-	{
-	}
+	Object(const Scene& _scene, const IElement& _element);
 
 	virtual ~Object() {}
 	virtual Type getType() const = 0;
 	
-	IElement* resolveProperty(const char* name);
+	int resolveObjectLinkCount() const;
+	int resolveObjectLinkCount(Type type) const;
 	Object* resolveObjectLink(int idx) const;
 	Object* resolveObjectLink(Type type) const;
-	Object* resolveObjectLink(Type type, const char* idx) const;
+	Object* resolveObjectLinkReverse(Type type) const;
+	Object* resolveObjectLink(Type type, int idx) const;
+	Object* resolveObjectLink(Type type, const char* property) const;
+	Object* getParent() const;
 
+	template <typename T> T* resolveObjectLink() const { return static_cast<T*>(resolveObjectLink(T::s_type)); }
+	template <typename T> T* resolveObjectLink(int idx) const { return static_cast<T*>(resolveObjectLink(T::s_type, idx)); }
+
+	char name[128];
+	
+protected:
+	IElement* resolveProperty(const char* name) const;
 	const Scene& scene;
 	const IElement& element;
+	bool is_node;
 };
 
 
 struct Material : Object
 {
-	Material(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
-	virtual DataView getName() const = 0;
-};
+	static const Type s_type = MATERIAL;
 
-
-struct LimbNode : Object
-{
-	LimbNode(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	Material(const Scene& _scene, const IElement& _element);
 };
 
 
 struct Cluster : Object
 {
+	static const Type s_type = CLUSTER;
+
 	Cluster(const Scene& _scene, const IElement& _element);
 
 	virtual const int* getIndices() const = 0;
@@ -155,15 +168,26 @@ struct Cluster : Object
 	virtual int getWeightsCount() const = 0;
 	virtual Matrix getTransformMatrix() const = 0;
 	virtual Matrix getTransformLinkMatrix() const = 0;
+	virtual Object* getLink() const = 0;
+};
+
+
+struct Skin : Object
+{
+	static const Type s_type = SKIN;
+
+	Skin(const Scene& _scene, const IElement& _element);
+
+	virtual int getClusterCount() const = 0;
+	virtual Cluster* getCluster(int idx) const = 0;
 };
 
 
 struct NodeAttribute : Object
 {
-	NodeAttribute(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	static const Type s_type = NOTE_ATTRIBUTE;
+
+	NodeAttribute(const Scene& _scene, const IElement& _element);
 
 	virtual DataView getAttributeType() const = 0;
 };
@@ -171,41 +195,42 @@ struct NodeAttribute : Object
 
 struct Texture : Object
 {
-	Texture(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	static const Type s_type = TEXTURE;
 
-	virtual DataView getName() const = 0;
+	Texture(const Scene& _scene, const IElement& _element);
 	virtual DataView getFileName() const = 0;
 };
 
 
 struct Geometry : Object
 {
-	Geometry(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	static const Type s_type = GEOMETRY;
+
+	Geometry(const Scene& _scene, const IElement& _element);
 
 	virtual const Vec3* getVertices() const = 0;
 	virtual const int* getIndices() const = 0;
 	virtual int getVertexCount() const = 0;
 	virtual int getIndexCount() const = 0;
 
-	virtual void resolveVertexNormals(Vec3* out) const = 0;
-	virtual void resolveVertexUVs(Vec2* out) const = 0;
+	virtual int getUVCount() const = 0;
+	virtual int getNormalCount() const = 0;
+	virtual const Vec3* getNormals() const = 0;
+	virtual const Vec2* getUVs() const = 0;
 };
 
 
 struct Mesh : Object
 {
-	Mesh(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
-	{
-	}
+	static const Type s_type = MESH;
 
-	virtual DataView getName() const = 0;
+	Mesh(const Scene& _scene, const IElement& _element);
+
+	virtual Vec3 getGeometricTranslation() const = 0;
+	virtual Vec3 getGeometricRotation() const = 0;
+	virtual Vec3 getGeometricScaling() const = 0;
+	virtual Matrix evaluateGlobalTransform() const = 0;
+	virtual Skin* getSkin() const = 0;
 };
 
 
@@ -214,8 +239,8 @@ struct IScene
 	virtual void destroy() = 0;
 	virtual IElement* getRootElement() const = 0;
 	virtual Object* getRoot() const = 0;
-	virtual int getObjectCount(Object::Type type) const = 0;
-	virtual Object* getObject(Object::Type type, int idx) const = 0;
+	virtual int resolveObjectCount(Object::Type type) const = 0;
+	virtual Object* resolveObject(Object::Type type, int idx) const = 0;
 	virtual ~IScene() {}
 };
 

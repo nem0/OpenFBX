@@ -166,7 +166,7 @@ void showObjectGUI(ofbx::Object& object)
 	switch (object.getType())
 	{
 		case ofbx::Object::GEOMETRY: label = "geometry"; break;
-		case ofbx::Object::MODEL: label = "model"; break;
+		case ofbx::Object::MESH: label = "mesh"; break;
 		case ofbx::Object::MATERIAL: label = "material"; break;
 		case ofbx::Object::ROOT: label = "root"; break;
 		case ofbx::Object::TEXTURE: label = "texture"; break;
@@ -177,6 +177,7 @@ void showObjectGUI(ofbx::Object& object)
 		case ofbx::Object::SKIN: label = "skin"; break;
 		default: assert(false); break;
 	}
+
 	ImGuiTreeElementFlags flags = g_selected_object == &object ? ImGuiTreeElementFlags_Selected : 0;
 	char tmp[128];
 	ofbx::IElementProperty* prop = object.element.getFirstProperty();
@@ -221,12 +222,12 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 	int obj_idx = 0;
 	int indices_offset = 0;
 	int normals_offset = 0;
-	int mesh_count = scene.getObjectCount(ofbx::Object::GEOMETRY);
+	int mesh_count = scene.resolveObjectCount(ofbx::Object::GEOMETRY);
 	for (int i = 0; i < mesh_count; ++i)
 	{
 		fprintf(fp, "o obj%d\ng grp%d\n", i, obj_idx);
 
-		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.getObject(ofbx::Object::GEOMETRY, i);
+		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.resolveObject(ofbx::Object::GEOMETRY, i);
 		int vertex_count = mesh.getVertexCount();
 		const ofbx::Vec3* vertices = mesh.getVertices();
 		for (int i = 0; i < vertex_count; ++i)
@@ -236,22 +237,31 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		}
 
 		int index_count = mesh.getIndexCount();
-		std::vector<ofbx::Vec3> normals;
-		normals.resize(index_count);
-		mesh.resolveVertexNormals(&normals[0]);
-
-		for (ofbx::Vec3 n : normals)
+		
+		bool has_normals = mesh.getNormalCount() > 0;
+		if (has_normals)
 		{
-			fprintf(fp, "vn %f %f %f\n", n.x, n.y, n.z);
+			std::vector<ofbx::Vec3> normals;
+			normals.resize(index_count);
+			mesh.resolveNormals(&normals[0]);
+
+			for (ofbx::Vec3 n : normals)
+			{
+				fprintf(fp, "vn %f %f %f\n", n.x, n.y, n.z);
+			}
 		}
 
-		std::vector<ofbx::Vec2> uvs;
-		uvs.resize(index_count);
-		mesh.resolveVertexUVs(&uvs[0]);
-
-		for (ofbx::Vec2 uv : uvs)
+		bool has_uvs = mesh.getUVCount() > 0;
+		if (has_uvs)
 		{
-			fprintf(fp, "vt %f %f\n", uv.x, uv.y);
+			std::vector<ofbx::Vec2> uvs;
+			uvs.resize(index_count);
+			mesh.resolveUVs(&uvs[0]);
+
+			for (ofbx::Vec2 uv : uvs)
+			{
+				fprintf(fp, "vt %f %f\n", uv.x, uv.y);
+			}
 		}
 
 		const int* indices = mesh.getIndices();
@@ -264,8 +274,27 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 				new_face = false;
 			}
 			int idx = indices[i];
-			int vertex_idx = indices_offset + (idx >= 0 ?  idx + 1 : -idx);
-			fprintf(fp, "%d/%d/%d", vertex_idx, normals_offset + i + 1, normals_offset + i + 1);
+			int vertex_idx = indices_offset + (idx >= 0 ? idx + 1 : -idx);
+			fprintf(fp, "%d", vertex_idx);
+
+			if (has_normals)
+			{
+				fprintf(fp, "/%d", normals_offset + i + 1);
+			}
+			else
+			{
+				fprintf(fp, "/");
+			}
+
+			if (has_uvs)
+			{
+				fprintf(fp, "/%d", normals_offset + i + 1);
+			}
+			else
+			{
+				fprintf(fp, "/");
+			}
+
 			new_face = idx < 0;
 			fputc(new_face ? '\n' : ' ', fp);
 		}

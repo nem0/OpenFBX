@@ -122,6 +122,23 @@ struct Element : IElement
 };
 
 
+Object::Object(const Scene& _scene, const IElement& _element)
+	: scene(_scene)
+	, element(_element)
+	, is_node(false)
+{
+	auto& e = (Element&)_element;
+	if (e.first_property && e.first_property->next)
+	{
+		e.first_property->next->value.toString(name);
+	}
+	else
+	{
+		name[0] = '\0';
+	}
+}
+
+
 void decompress(const u8* in, size_t in_size, u8* out, size_t out_size)
 {
 	mz_stream stream = {};
@@ -355,20 +372,57 @@ u64 getElementUUID(const Element& element)
 struct Scene;
 
 
+Mesh::Mesh(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
 struct MeshImpl : Mesh
 {
 	MeshImpl(const Scene& _scene, const IElement& _element)
 		: Mesh(_scene, _element)
 		, scene(_scene)
 	{
+		is_node = true;
 	}
 
-	Type getType() const override { return MODEL; }
-	DataView getName() const override { return name; }
 
-	DataView name;
+	Vec3 resolveVec3Property(const char* name, const Vec3& default_value) const
+	{
+		Element* element = (Element*)resolveProperty(name);
+		if (!element) return default_value;
+		Property* x = (Property*)element->getProperty(4);
+		if (!x || !x->next || !x->next->next) return default_value;
+
+		return{ x->value.toDouble(), x->next->value.toDouble(), x->next->next->value.toDouble() };
+	}
+
+
+	Vec3 getGeometricTranslation() const override { return resolveVec3Property("GeometricTranslation", {0, 0, 0}); }
+	Vec3 getGeometricRotation() const override { return resolveVec3Property("GeometricRotation", {0, 0, 0}); }
+	Vec3 getGeometricScaling() const override { return resolveVec3Property("GeometricScaling", {1, 1, 1}); }
+	Type getType() const override { return MESH; }
+	Matrix evaluateGlobalTransform() const override
+	{
+		// TODO
+		return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+	}
+
+	Skin* getSkin() const override
+	{
+		Geometry* geom = resolveObjectLink<ofbx::Geometry>();
+		if (!geom) return nullptr;
+		return geom->resolveObjectLink<ofbx::Skin>();
+	}
+
+
 	const Scene& scene;
 };
+
+
+Material::Material(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
 
 
 struct MaterialImpl : Material
@@ -378,17 +432,15 @@ struct MaterialImpl : Material
 	{
 	}
 	Type getType() const override { return MATERIAL; }
-	DataView getName() const override { return name; }
-
-	DataView name;
 };
 
 
-struct LimbNodeImpl : LimbNode
+struct LimbNodeImpl : Object
 {
 	LimbNodeImpl(const Scene& _scene, const IElement& _element)
-		: LimbNode(_scene, _element)
+		: Object(_scene, _element)
 	{
+		is_node = true;
 	}
 	Type getType() const override { return LIMB_NODE; }
 };
@@ -399,9 +451,15 @@ struct NullImpl : Object
 	NullImpl(const Scene& _scene, const IElement& _element)
 		: Object(_scene, _element)
 	{
+		is_node = true;
 	}
 	Type getType() const override { return NULL_NODE; }
 };
+
+
+NodeAttribute::NodeAttribute(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
 
 
 struct NodeAttributeImpl : NodeAttribute
@@ -416,7 +474,6 @@ struct NodeAttributeImpl : NodeAttribute
 	
 	DataView attribute_type;
 };
-
 
 
 Cluster::Cluster(const Scene& _scene, const IElement& _element)
@@ -438,6 +495,11 @@ struct ClusterImpl : Cluster
 	int getWeightsCount() const override { return (int)weights.size(); }
 	Matrix getTransformMatrix() const { return transform_matrix; }
 	Matrix getTransformLinkMatrix() const { return transform_link_matrix; }
+	Object* getLink() const override
+	{
+		return resolveObjectLink(Object::LIMB_NODE);
+	}
+
 
 	std::vector<int> indices;
 	std::vector<double> weights;
@@ -447,14 +509,28 @@ struct ClusterImpl : Cluster
 };
 
 
-struct SkinImpl : Object
+Skin::Skin(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+struct SkinImpl : Skin
 {
 	SkinImpl(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element)
+		: Skin(_scene, _element)
 	{
 	}
+
+	int getClusterCount() const override { return resolveObjectLinkCount(CLUSTER); }
+	Cluster* getCluster(int idx) const override { return resolveObjectLink<ofbx::Cluster>(idx); }
+
 	Type getType() const override { return SKIN; }
 };
+
+
+Texture::Texture(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
 
 
 struct TextureImpl : Texture
@@ -465,11 +541,8 @@ struct TextureImpl : Texture
 	}
 
 
-	DataView getName() const override { return name; }
 	DataView getFileName() const override { return filename; }
 
-
-	DataView name;
 	DataView filename;
 	Type getType() const override { return TEXTURE; }
 };
@@ -477,9 +550,17 @@ struct TextureImpl : Texture
 
 struct Root : Object
 {
-	Root(const Scene& _scene, const IElement& _element) : Object(_scene, _element) {}
+	Root(const Scene& _scene, const IElement& _element)
+		: Object(_scene, _element)
+	{
+	}
 	Type getType() const override { return ROOT; }
 };
+
+
+Geometry::Geometry(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
 
 
 struct GeometryImpl : Geometry
@@ -492,12 +573,8 @@ struct GeometryImpl : Geometry
 
 	std::vector<Vec3> vertices;
 	std::vector<Vec3> normals;
-	VertexDataMapping normals_mapping;
 	std::vector<Vec2> uvs;
-	VertexDataMapping uvs_mapping;
 	std::vector<int> indices;
-	std::vector<int> normals_indices;
-	std::vector<int> uvs_indices;
 
 	GeometryImpl(const Scene& _scene, const IElement& _element)
 		: Geometry(_scene, _element)
@@ -508,8 +585,64 @@ struct GeometryImpl : Geometry
 	int getIndexCount() const override { return (int)indices.size(); }
 	const Vec3* getVertices() const override { return &vertices[0]; }
 	const int* getIndices() const override { return &indices[0]; }
-	void resolveVertexNormals(Vec3* out) const override;
-	void resolveVertexUVs(Vec2* out) const override;
+	int getUVCount() const override { return (int)uvs.size(); }
+	int getNormalCount() const override { return (int)normals.size(); }
+	const Vec3* getNormals() const override { return &normals[0]; }
+	const Vec2* getUVs() const override { return &uvs[0]; }
+
+	template <typename T>
+	static void remap(std::vector<T>* out, std::vector<int> map)
+	{
+		if (out->empty()) return;
+
+		std::vector<T> old;
+		old.swap(*out);
+		for (int i = 0, c = (int)map.size(); i < c; ++i)
+		{
+			out->push_back(old[map[i]]);
+		}
+	}
+
+	void triangulate()
+	{
+		std::vector<int> old_indices;
+		indices.swap(old_indices);
+		std::vector<int> to_old;
+
+		auto getIdx = [&old_indices](int i) -> int {
+			int idx = old_indices[i];
+			return idx < 0 ? -idx - 1 : idx;
+		};
+
+		int in_polygon_idx = 0;
+		for (int i = 0; i < old_indices.size(); ++i)
+		{
+			int idx = getIdx(i);
+			if (in_polygon_idx <= 2)
+			{
+				indices.push_back(idx);
+				to_old.push_back(i);
+			}
+			else
+			{
+				indices.push_back(old_indices[i - in_polygon_idx]);
+				to_old.push_back(i - in_polygon_idx);
+				indices.push_back(old_indices[i - 1]);
+				to_old.push_back(i - 1);
+				indices.push_back(idx);
+				to_old.push_back(i);
+			}
+			++in_polygon_idx;
+			if (old_indices[i] < 0)
+			{
+				in_polygon_idx = 0;
+			}
+		}
+
+		remap(&uvs, to_old);
+		remap(&normals, to_old);
+		// todo remap indices in Cluster
+	}
 };
 
 
@@ -539,7 +672,7 @@ struct Scene : IScene
 	Object* getRoot() const override { return m_root; }
 
 
-	int getObjectCount(Object::Type type) const override
+	int resolveObjectCount(Object::Type type) const override
 	{
 		int count = 0;
 		for (const auto& iter : m_object_map)
@@ -553,7 +686,7 @@ struct Scene : IScene
 	}
 
 
-	Object* getObject(Object::Type type, int idx) const override
+	Object* resolveObject(Object::Type type, int idx) const override
 	{
 		int counter = idx;
 		for (const auto& iter : m_object_map)
@@ -606,11 +739,6 @@ Texture* parseTexture(const Scene& scene, Element& element)
 	if (texture_filename && texture_filename->first_property)
 	{
 		texture->filename = texture_filename->first_property->value;
-	}
-	Element* texture_name = findChild(element, "TextureName");
-	if (texture_name && texture_name->first_property)
-	{
-		texture->name = texture_name->first_property->value;
 	}
 	return texture;
 }
@@ -684,9 +812,7 @@ Mesh* parseMesh(const Scene& scene, Element& element)
 	assert(element.first_property->next->next);
 	assert(element.first_property->next->next->value == "Mesh");
 	
-	MeshImpl* model = new MeshImpl(scene, element);
-	model->name = element.first_property->next->value;
-	return model;
+	return new MeshImpl(scene, element);
 }
 
 
@@ -694,10 +820,6 @@ Material* parseMaterial(const Scene& scene, Element& element)
 {
 	assert(element.first_property);
 	MaterialImpl* material = new MaterialImpl(scene, element);
-	if (element.first_property && element.first_property->next)
-	{
-		material->name = element.first_property->next->value;
-	}
 	Element* prop = findChild(element, "Properties70");
 	if (prop) prop = prop->child;
 	while(prop)
@@ -846,6 +968,33 @@ static void parseVertexData(Element& element, const char* name, const char* inde
 }
 
 
+template <typename T>
+void splat(std::vector<T>* out,
+	GeometryImpl::VertexDataMapping mapping,
+	const std::vector<T>& data,
+	const std::vector<int>& indices)
+{
+	assert(out);
+	assert(!data.empty());
+	assert(mapping == GeometryImpl::BY_POLYGON_VERTEX);
+
+	if (indices.empty())
+	{
+		out->resize(data.size());
+		memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size());
+	}
+	else
+	{
+		out->resize(indices.size());
+		for (int i = 0, c = (int)indices.size(); i < c; ++i)
+		{
+			(*out)[i] = data[indices[i]];
+		}
+	}
+
+}
+
+
 Geometry* parseGeometry(const Scene& scene, Element& element)
 {
 	assert(element.first_property);
@@ -864,14 +1013,25 @@ Geometry* parseGeometry(const Scene& scene, Element& element)
 	Element* layer_uv_element = findChild(element, "LayerElementUV");
 	if (layer_uv_element)
 	{
-		parseVertexData(*layer_uv_element, "UV", "UVIndex", &geom->uvs, &geom->uvs_indices, &geom->uvs_mapping);
+		std::vector<Vec2> tmp;
+		std::vector<int> tmp_indices;
+		GeometryImpl::VertexDataMapping mapping;
+		parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping);
+		geom->uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
+		splat(&geom->uvs, mapping, tmp, tmp_indices);
 	}
 
 	Element* layer_normal_element = findChild(element, "LayerElementNormal");
 	if (layer_normal_element)
 	{
-		parseVertexData(*layer_normal_element, "Normals", "NormalsIndex", &geom->normals, &geom->normals_indices, &geom->normals_mapping);
+		std::vector<Vec3> tmp;
+		std::vector<int> tmp_indices;
+		GeometryImpl::VertexDataMapping mapping;
+		parseVertexData(*layer_normal_element, "Normals", "NormalsIndex", &tmp, &tmp_indices, &mapping);
+		splat(&geom->normals, mapping, tmp, tmp_indices);
 	}
+
+	geom->triangulate();
 
 	return geom;
 }
@@ -982,47 +1142,26 @@ void parseObjects(Element& root, Scene* scene)
 }
 
 
-
 template <typename T>
-void resolveVertexData(T* out,
-	GeometryImpl::VertexDataMapping mapping,
+int getVertexDataCount(GeometryImpl::VertexDataMapping mapping,
 	const std::vector<T>& data,
 	const std::vector<int>& indices)
 {
-	assert(out);
-	assert(!data.empty());
+	if (data.empty()) return 0;
 	assert(mapping == GeometryImpl::BY_POLYGON_VERTEX);
 
 	if (indices.empty())
 	{
-		memcpy(out, &data[0], sizeof(data[0]) * data.size());
+		return (int)data.size();
 	}
 	else
 	{
-		T* cursor = out;
-		for (int i = 0, c = (int)indices.size(); i < c; ++i)
-		{
-			*cursor = data[indices[i]];
-			++cursor;
-		}
+		return (int)indices.size();
 	}
-
 }
 
 
-void GeometryImpl::resolveVertexNormals(Vec3* out) const
-{
-	resolveVertexData(out, normals_mapping, normals, normals_indices);
-}
-
-
-void GeometryImpl::resolveVertexUVs(Vec2* out) const
-{
-	resolveVertexData(out, uvs_mapping, uvs, uvs_indices);
-}
-
-
-IElement* Object::resolveProperty(const char* name)
+IElement* Object::resolveProperty(const char* name) const
 {
 	Element* props = findChild((ofbx::Element&)element, "Properties70");
 	if (!props) return nullptr;
@@ -1052,6 +1191,75 @@ Object* Object::resolveObjectLink(Object::Type type) const
 		}
 	}
 	return nullptr;
+}
+
+
+Object* Object::resolveObjectLinkReverse(Object::Type type) const
+{
+	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : scene.m_connections)
+	{
+		if (connection.from == id && connection.to != 0)
+		{
+			Object* obj = scene.m_object_map.find(connection.to)->second.object;
+			if (obj && obj->getType() == type) return obj;
+		}
+	}
+	return nullptr;
+}
+
+
+Object* Object::resolveObjectLink(Object::Type type, int idx) const
+{
+	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : scene.m_connections)
+	{
+		if (connection.to == id && connection.from != 0)
+		{
+			Object* obj = scene.m_object_map.find(connection.from)->second.object;
+			if (obj && obj->getType() == type)
+			{
+				if(idx == 0) return obj;
+				--idx;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+int Object::resolveObjectLinkCount(Object::Type type) const
+{
+	int count = 0;
+	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : scene.m_connections)
+	{
+		if (connection.to == id && connection.from != 0)
+		{
+			Object* obj = scene.m_object_map.find(connection.from)->second.object;
+			if (obj && obj->getType() == type) ++count;
+		}
+	}
+	return count;
+}
+
+
+int Object::resolveObjectLinkCount() const
+{
+	int count = 0;
+	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : scene.m_connections)
+	{
+		if (connection.to == id && connection.from != 0)
+		{
+			Object* obj = scene.m_object_map.find(connection.from)->second.object;
+			if (obj)
+			{
+				++count;
+			}
+		}
+	}
+	return count;
 }
 
 
@@ -1089,6 +1297,26 @@ Object* Object::resolveObjectLink(Object::Type type, const char* property) const
 		}
 	}
 	return nullptr;
+}
+
+
+Object* Object::getParent() const
+{
+	Object* parent = nullptr;
+	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : scene.m_connections)
+	{
+		if (connection.from == id && connection.to != 0)
+		{
+			Object* obj = scene.m_object_map.find(connection.to)->second.object;
+			if (obj && obj->is_node)
+			{
+				assert(parent == nullptr);
+				parent = obj;
+			}
+		}
+	}
+	return parent;
 }
 
 
