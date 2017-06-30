@@ -56,7 +56,7 @@ struct DataView
 	double toDouble() const;
 	
 	template <int N>
-	void toString(char(&out)[N])
+	void toString(char(&out)[N]) const
 	{
 		char* cout = out;
 		const u8* cin = begin;
@@ -118,7 +118,11 @@ struct Object
 		NULL_NODE,
 		NOTE_ATTRIBUTE,
 		CLUSTER,
-		SKIN
+		SKIN,
+		ANIMATION_STACK,
+		ANIMATION_LAYER,
+		ANIMATION_CURVE,
+		ANIMATION_CURVE_NODE
 	};
 
 	Object(const Scene& _scene, const IElement& _element);
@@ -243,6 +247,45 @@ struct Mesh : Object
 };
 
 
+struct AnimationStack : Object
+{
+	static const Type s_type = ANIMATION_STACK;
+
+	AnimationStack(const Scene& _scene, const IElement& _element);
+};
+
+
+struct AnimationLayer : Object
+{
+	static const Type s_type = ANIMATION_LAYER;
+
+	AnimationLayer(const Scene& _scene, const IElement& _element);
+};
+
+
+struct AnimationCurve : Object
+{
+	static const Type s_type = ANIMATION_CURVE;
+
+	AnimationCurve(const Scene& _scene, const IElement& _element);
+};
+
+
+struct AnimationCurveNode : Object
+{
+	static const Type s_type = ANIMATION_CURVE_NODE;
+
+	AnimationCurveNode(const Scene& _scene, const IElement& _element);
+};
+
+
+struct TakeInfo
+{
+	DataView name;
+	DataView filename;
+};
+
+
 struct IScene
 {
 	virtual void destroy() = 0;
@@ -250,6 +293,7 @@ struct IScene
 	virtual Object* getRoot() const = 0;
 	virtual int resolveObjectCount(Object::Type type) const = 0;
 	virtual Object* resolveObject(Object::Type type, int idx) const = 0;
+	virtual const TakeInfo* getTakeInfo(const char* name) const = 0;
 	virtual ~IScene() {}
 };
 

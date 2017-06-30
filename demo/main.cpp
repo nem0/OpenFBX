@@ -175,6 +175,10 @@ void showObjectGUI(ofbx::Object& object)
 		case ofbx::Object::NOTE_ATTRIBUTE: label = "node attribute"; break;
 		case ofbx::Object::CLUSTER: label = "cluster"; break;
 		case ofbx::Object::SKIN: label = "skin"; break;
+		case ofbx::Object::ANIMATION_STACK: label = "animation stack"; break;
+		case ofbx::Object::ANIMATION_LAYER: label = "animation layer"; break;
+		case ofbx::Object::ANIMATION_CURVE: label = "animation curve"; break;
+		case ofbx::Object::ANIMATION_CURVE_NODE: label = "animation curve node"; break;
 		default: assert(false); break;
 	}
 

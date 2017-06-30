@@ -664,6 +664,70 @@ struct ClusterImpl : Cluster
 };
 
 
+AnimationStack::AnimationStack(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+AnimationLayer::AnimationLayer(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+AnimationCurve::AnimationCurve(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+AnimationCurveNode::AnimationCurveNode(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+struct AnimationStackImpl : AnimationStack
+{
+	AnimationStackImpl(const Scene& _scene, const IElement& _element)
+		: AnimationStack(_scene, _element)
+	{
+	}
+
+	Type getType() const override { return ANIMATION_STACK; }
+};
+
+
+struct AnimationLayerImpl : AnimationLayer
+{
+	AnimationLayerImpl(const Scene& _scene, const IElement& _element)
+		: AnimationLayer(_scene, _element)
+	{
+	}
+
+	Type getType() const override { return ANIMATION_LAYER; }
+};
+
+
+struct AnimationCurveImpl : AnimationCurve
+{
+	AnimationCurveImpl(const Scene& _scene, const IElement& _element)
+		: AnimationCurve(_scene, _element)
+	{
+	}
+
+	Type getType() const override { return ANIMATION_CURVE; }
+};
+
+
+struct AnimationCurveNodeImpl : AnimationCurveNode
+{
+	AnimationCurveNodeImpl(const Scene& _scene, const IElement& _element)
+		: AnimationCurveNode(_scene, _element)
+	{
+	}
+
+	Type getType() const override { return ANIMATION_CURVE_NODE; }
+};
+
+
 Skin::Skin(const Scene& _scene, const IElement& _element)
 	: Object(_scene, _element)
 {}
@@ -735,6 +799,16 @@ struct Scene : IScene
 	};
 
 
+	const TakeInfo* getTakeInfo(const char* name) const override
+	{
+		for (const TakeInfo& info : m_take_infos)
+		{
+			if (info.name == name) return &info;
+		}
+		return nullptr;
+	}
+
+
 	IElement* getRootElement() const override { return m_root_element; }
 	Object* getRoot() const override { return m_root; }
 
@@ -787,6 +861,7 @@ struct Scene : IScene
 	std::unordered_map<u64, ObjectPair> m_object_map;
 	std::vector<Connection> m_connections;
 	std::vector<u8> m_data;
+	std::vector<TakeInfo> m_take_infos;
 };
 
 
@@ -1156,6 +1231,29 @@ void parseConnections(const Element& root, Scene* scene)
 }
 
 
+void parseTakes(Scene* scene)
+{
+	const Element* takes = findChild((const Element&)*scene->getRootElement(), "Takes");
+	if (!takes) return;
+
+	const Element* object = takes->child;
+	while (object)
+	{
+		if (object->id == "Take")
+		{
+			TakeInfo take;
+			take.name = object->first_property->value;
+			const Element* filename = findChild(*object, "FileName");
+			if (filename) take.filename = filename->first_property->value;
+			scene->m_take_infos.push_back(take);
+		}
+		
+		object = object->sibling;
+	}
+
+}
+
+
 void parseObjects(const Element& root, Scene* scene)
 {
 	const Element* objs = findChild(root, "Objects");
@@ -1186,6 +1284,22 @@ void parseObjects(const Element& root, Scene* scene)
 		else if (iter.second.element->id == "Material")
 		{
 			obj = parseMaterial(*scene, *iter.second.element);
+		}
+		else if (iter.second.element->id == "AnimationStack")
+		{
+			obj = parse<AnimationStackImpl>(*scene, *iter.second.element);
+		}
+		else if (iter.second.element->id == "AnimationLayer")
+		{
+			obj = parse<AnimationLayerImpl>(*scene, *iter.second.element);
+		}
+		else if (iter.second.element->id == "AnimationCurve")
+		{
+			obj = parse<AnimationCurveImpl>(*scene, *iter.second.element);
+		}
+		else if (iter.second.element->id == "AnimationCurveNode")
+		{
+			obj = parse<AnimationCurveNodeImpl>(*scene, *iter.second.element);
 		}
 		else if (iter.second.element->id == "Deformer")
 		{
@@ -1481,6 +1595,7 @@ IScene* load(const u8* data, size_t size)
 	scene->m_root_element = root;
 	parseTemplates(*root);
 	parseConnections(*root, scene);
+	parseTakes(scene);
 	parseObjects(*root, scene);
 	return scene;
 }
