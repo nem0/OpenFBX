@@ -318,9 +318,9 @@ Element* tokenize(const u8* data, size_t size)
 }
 
 
-Element* findChild(Element& element, const char* id)
+const Element* findChild(const Element& element, const char* id)
 {
-	Element** iter = &element.child;
+	Element* const* iter = &element.child;
 	while (*iter)
 	{
 		if ((*iter)->id == id) return *iter;
@@ -330,9 +330,9 @@ Element* findChild(Element& element, const char* id)
 }
 
 
-void parseTemplates(Element& root)
+void parseTemplates(const Element& root)
 {
-	Element* defs = findChild(root, "Definitions");
+	const Element* defs = findChild(root, "Definitions");
 	if (!defs) return;
 
 	std::unordered_map<std::string, Element*> templates;
@@ -476,6 +476,78 @@ struct NodeAttributeImpl : NodeAttribute
 };
 
 
+Geometry::Geometry(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{}
+
+
+struct GeometryImpl : Geometry
+{
+	enum VertexDataMapping
+	{
+		BY_POLYGON_VERTEX,
+		BY_POLYGON
+	};
+
+	std::vector<Vec3> vertices;
+	std::vector<Vec3> normals;
+	std::vector<Vec2> uvs;
+
+	std::vector<int> to_old_vertices;
+
+	GeometryImpl(const Scene& _scene, const IElement& _element)
+		: Geometry(_scene, _element)
+	{
+	}
+	Type getType() const override { return GEOMETRY; }
+	int getVertexCount() const override { return (int)vertices.size(); }
+	const Vec3* getVertices() const override { return &vertices[0]; }
+	int getUVCount() const override { return (int)uvs.size(); }
+	int getNormalCount() const override { return (int)normals.size(); }
+	const Vec3* getNormals() const override { return &normals[0]; }
+	const Vec2* getUVs() const override { return &uvs[0]; }
+
+
+	void triangulate(std::vector<int>* indices, std::vector<int>* to_old)
+	{
+		assert(indices);
+		assert(to_old);
+		std::vector<int> old_indices;
+		indices->swap(old_indices);
+
+		auto getIdx = [&old_indices](int i) -> int {
+			int idx = old_indices[i];
+			return idx < 0 ? -idx - 1 : idx;
+		};
+
+		int in_polygon_idx = 0;
+		for (int i = 0; i < old_indices.size(); ++i)
+		{
+			int idx = getIdx(i);
+			if (in_polygon_idx <= 2)
+			{
+				indices->push_back(idx);
+				to_old->push_back(i);
+			}
+			else
+			{
+				indices->push_back(old_indices[i - in_polygon_idx]);
+				to_old->push_back(i - in_polygon_idx);
+				indices->push_back(old_indices[i - 1]);
+				to_old->push_back(i - 1);
+				indices->push_back(idx);
+				to_old->push_back(i);
+			}
+			++in_polygon_idx;
+			if (old_indices[i] < 0)
+			{
+				in_polygon_idx = 0;
+			}
+		}
+	}
+};
+
+
 Cluster::Cluster(const Scene& _scene, const IElement& _element)
 	: Object(_scene, _element)
 {
@@ -490,14 +562,92 @@ struct ClusterImpl : Cluster
 	}
 
 	const int* getIndices() const override { return &indices[0]; }
-	int getIndicesCount() const override { return (int)indices.size(); }
+	virtual int getIndicesCount() const override { return (int)indices.size(); }
 	const double* getWeights() const override { return &weights[0]; }
 	int getWeightsCount() const override { return (int)weights.size(); }
 	Matrix getTransformMatrix() const { return transform_matrix; }
 	Matrix getTransformLinkMatrix() const { return transform_link_matrix; }
-	Object* getLink() const override
-	{
-		return resolveObjectLink(Object::LIMB_NODE);
+	Object* getLink() const override { return resolveObjectLink(Object::LIMB_NODE); }
+	
+
+	void postprocess()
+	{ 
+		Object* skin = resolveObjectLinkReverse(Object::SKIN);
+		if (!skin) return;
+
+		GeometryImpl* geom = (GeometryImpl*)skin->resolveObjectLinkReverse(Object::GEOMETRY);
+		if (!geom) return;
+
+		std::vector<int> old_indices;
+		const Element* indexes = findChild((const Element&)element, "Indexes");
+		if (indexes && indexes->first_property)
+		{
+			parseBinaryArray(*indexes->first_property, &old_indices);
+		}
+
+		std::vector<double> old_weights;
+		const Element* weights_el = findChild((const Element&)element, "Weights");
+		if (weights_el && weights_el->first_property)
+		{
+			parseBinaryArray(*weights_el->first_property, &old_weights);
+		}
+
+		assert(old_indices.size() == old_weights.size());
+		
+		struct NewNode
+		{
+			int value = -1;
+			NewNode* next = nullptr;
+		};
+		
+		struct Pool
+		{
+			NewNode* pool = nullptr;
+			int pool_index = 0;
+
+			Pool(size_t count) { pool = new NewNode[count]; }
+			~Pool() { delete[] pool; }
+
+			void add(NewNode& node, int i)
+			{
+				if (node.value == -1)
+				{
+					node.value = i;
+				}
+				else if (node.next)
+				{
+					add(*node.next, i);
+				}
+				else
+				{
+					node.next = &pool[pool_index];
+					++pool_index;
+					node.next->value = i;
+				}
+			}
+		} pool(geom->to_old_vertices.size());
+		
+		std::vector<NewNode> to_new;
+		
+		to_new.resize(geom->to_old_vertices.size());
+		for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
+		{
+			int old = geom->to_old_vertices[i];
+			pool.add(to_new[old], i);
+		}
+
+		for (int i = 0, c = (int)old_indices.size(); i < c; ++i)
+		{
+			int old_idx = old_indices[i];
+			double w = old_weights[i];
+			NewNode* n = &to_new[old_idx];
+			while (n)
+			{
+				indices.push_back(n->value);
+				weights.push_back(w);
+				n = n->next;
+			}
+		}
 	}
 
 
@@ -558,94 +708,6 @@ struct Root : Object
 };
 
 
-Geometry::Geometry(const Scene& _scene, const IElement& _element)
-	: Object(_scene, _element)
-{}
-
-
-struct GeometryImpl : Geometry
-{
-	enum VertexDataMapping
-	{
-		BY_POLYGON_VERTEX,
-		BY_POLYGON
-	};
-
-	std::vector<Vec3> vertices;
-	std::vector<Vec3> normals;
-	std::vector<Vec2> uvs;
-	std::vector<int> indices;
-
-	GeometryImpl(const Scene& _scene, const IElement& _element)
-		: Geometry(_scene, _element)
-	{
-	}
-	Type getType() const override { return GEOMETRY; }
-	int getVertexCount() const override { return (int)vertices.size(); }
-	int getIndexCount() const override { return (int)indices.size(); }
-	const Vec3* getVertices() const override { return &vertices[0]; }
-	const int* getIndices() const override { return &indices[0]; }
-	int getUVCount() const override { return (int)uvs.size(); }
-	int getNormalCount() const override { return (int)normals.size(); }
-	const Vec3* getNormals() const override { return &normals[0]; }
-	const Vec2* getUVs() const override { return &uvs[0]; }
-
-	template <typename T>
-	static void remap(std::vector<T>* out, std::vector<int> map)
-	{
-		if (out->empty()) return;
-
-		std::vector<T> old;
-		old.swap(*out);
-		for (int i = 0, c = (int)map.size(); i < c; ++i)
-		{
-			out->push_back(old[map[i]]);
-		}
-	}
-
-	void triangulate()
-	{
-		std::vector<int> old_indices;
-		indices.swap(old_indices);
-		std::vector<int> to_old;
-
-		auto getIdx = [&old_indices](int i) -> int {
-			int idx = old_indices[i];
-			return idx < 0 ? -idx - 1 : idx;
-		};
-
-		int in_polygon_idx = 0;
-		for (int i = 0; i < old_indices.size(); ++i)
-		{
-			int idx = getIdx(i);
-			if (in_polygon_idx <= 2)
-			{
-				indices.push_back(idx);
-				to_old.push_back(i);
-			}
-			else
-			{
-				indices.push_back(old_indices[i - in_polygon_idx]);
-				to_old.push_back(i - in_polygon_idx);
-				indices.push_back(old_indices[i - 1]);
-				to_old.push_back(i - 1);
-				indices.push_back(idx);
-				to_old.push_back(i);
-			}
-			++in_polygon_idx;
-			if (old_indices[i] < 0)
-			{
-				in_polygon_idx = 0;
-			}
-		}
-
-		remap(&uvs, to_old);
-		remap(&normals, to_old);
-		// todo remap indices in Cluster
-	}
-};
-
-
 struct Scene : IScene
 {
 	struct Connection
@@ -663,7 +725,7 @@ struct Scene : IScene
 
 	struct ObjectPair
 	{
-		Element* element;
+		const Element* element;
 		Object* object;
 	};
 
@@ -723,7 +785,7 @@ struct Scene : IScene
 };
 
 
-Property* getLastProperty(Element* element)
+Property* getLastProperty(const Element* element)
 {
 	Property* prop = element->first_property;
 	if (!prop) return nullptr;
@@ -732,10 +794,10 @@ Property* getLastProperty(Element* element)
 }
 
 
-Texture* parseTexture(const Scene& scene, Element& element)
+Texture* parseTexture(const Scene& scene, const Element& element)
 {
 	TextureImpl* texture = new TextureImpl(scene, element);
-	Element* texture_filename = findChild(element, "FileName");
+	const Element* texture_filename = findChild(element, "FileName");
 	if (texture_filename && texture_filename->first_property)
 	{
 		texture->filename = texture_filename->first_property->value;
@@ -745,33 +807,23 @@ Texture* parseTexture(const Scene& scene, Element& element)
 
 
 template <typename T>
-T* parse(const Scene& scene, Element& element)
+T* parse(const Scene& scene, const Element& element)
 {
 	T* obj = new T(scene, element);
 	return obj;
 }
 
 
-Object* parseCluster(const Scene& scene, Element& element)
+Object* parseCluster(const Scene& scene, const Element& element)
 {
 	ClusterImpl* obj = new ClusterImpl(scene, element);
 	
-	Element* indexes = findChild(element, "Indexes");
-	if (indexes && indexes->first_property)
-	{
-		parseBinaryArray(*indexes->first_property, &obj->indices);
-	}
-	Element* weights = findChild(element, "Weights");
-	if (weights && weights->first_property)
-	{
-		parseBinaryArray(*weights->first_property, &obj->weights);
-	}
-	Element* transform_link = findChild(element, "TransformLink");
+	const Element* transform_link = findChild(element, "TransformLink");
 	if (transform_link && transform_link->first_property)
 	{
 		parseBinaryArrayRaw(*transform_link->first_property, &obj->transform_link_matrix, sizeof(obj->transform_link_matrix));
 	}
-	Element* transform = findChild(element, "Transform");
+	const Element* transform = findChild(element, "Transform");
 	if (transform && transform->first_property)
 	{
 		parseBinaryArrayRaw(*transform->first_property, &obj->transform_matrix, sizeof(obj->transform_matrix));
@@ -780,10 +832,10 @@ Object* parseCluster(const Scene& scene, Element& element)
 }
 
 
-Object* parseNodeAttribute(const Scene& scene, Element& element)
+Object* parseNodeAttribute(const Scene& scene, const Element& element)
 {
 	NodeAttributeImpl* obj = new NodeAttributeImpl(scene, element);
-	Element* type_flags = findChild(element, "TypeFlags");
+	const Element* type_flags = findChild(element, "TypeFlags");
 	if (type_flags && type_flags->first_property)
 	{
 		obj->attribute_type = type_flags->first_property->value;
@@ -792,7 +844,7 @@ Object* parseNodeAttribute(const Scene& scene, Element& element)
 }
 
 
-Object* parseLimbNode(const Scene& scene, Element& element)
+Object* parseLimbNode(const Scene& scene, const Element& element)
 {
 
 	assert(element.first_property);
@@ -805,7 +857,7 @@ Object* parseLimbNode(const Scene& scene, Element& element)
 }
 
 
-Mesh* parseMesh(const Scene& scene, Element& element)
+Mesh* parseMesh(const Scene& scene, const Element& element)
 {
 	assert(element.first_property);
 	assert(element.first_property->next);
@@ -816,11 +868,11 @@ Mesh* parseMesh(const Scene& scene, Element& element)
 }
 
 
-Material* parseMaterial(const Scene& scene, Element& element)
+Material* parseMaterial(const Scene& scene, const Element& element)
 {
 	assert(element.first_property);
 	MaterialImpl* material = new MaterialImpl(scene, element);
-	Element* prop = findChild(element, "Properties70");
+	const Element* prop = findChild(element, "Properties70");
 	if (prop) prop = prop->child;
 	while(prop)
 	{
@@ -922,15 +974,15 @@ void parseDoubleVecData(Property& property, std::vector<T>* out_vec)
 
 
 template <typename T>
-static void parseVertexData(Element& element, const char* name, const char* index_name, std::vector<T>* out, std::vector<int>* out_indices, GeometryImpl::VertexDataMapping* mapping)
+static void parseVertexData(const Element& element, const char* name, const char* index_name, std::vector<T>* out, std::vector<int>* out_indices, GeometryImpl::VertexDataMapping* mapping)
 {
 	assert(out);
 	assert(mapping);
-	Element* data_element = findChild(element, name);
+	const Element* data_element = findChild(element, name);
 	if (data_element && data_element->first_property)
 	{
-		Element* mapping_element = findChild(element, "MappingInformationType");
-		Element* reference_element = findChild(element, "ReferenceInformationType");
+		const Element* mapping_element = findChild(element, "MappingInformationType");
+		const Element* reference_element = findChild(element, "ReferenceInformationType");
 
 		if (mapping_element && mapping_element->first_property)
 		{
@@ -951,7 +1003,7 @@ static void parseVertexData(Element& element, const char* name, const char* inde
 		{
 			if (reference_element->first_property->value == "IndexToDirect")
 			{
-				Element* indices_element = findChild(element, index_name);
+				const Element* indices_element = findChild(element, index_name);
 				if (indices_element && indices_element->first_property)
 				{
 					parseBinaryArray(*indices_element->first_property, out_indices);
@@ -995,22 +1047,46 @@ void splat(std::vector<T>* out,
 }
 
 
-Geometry* parseGeometry(const Scene& scene, Element& element)
+template <typename T>
+static void remap(std::vector<T>* out, std::vector<int> map)
+{
+	if (out->empty()) return;
+
+	std::vector<T> old;
+	old.swap(*out);
+	for (int i = 0, c = (int)map.size(); i < c; ++i)
+	{
+		out->push_back(old[map[i]]);
+	}
+}
+
+
+Geometry* parseGeometry(const Scene& scene, const Element& element)
 {
 	assert(element.first_property);
 
-	Element* vertices_element = findChild(element, "Vertices");
+	const Element* vertices_element = findChild(element, "Vertices");
 	if (!vertices_element || !vertices_element->first_property) return nullptr;
 
-	Element* polys_element = findChild(element, "PolygonVertexIndex");
+	const Element* polys_element = findChild(element, "PolygonVertexIndex");
 	if (!polys_element || !polys_element->first_property) return nullptr;
 
 	GeometryImpl* geom = new GeometryImpl(scene, element);
 
-	parseDoubleVecData(*vertices_element->first_property, &geom->vertices);
-	parseBinaryArray(*polys_element->first_property, &geom->indices);
+	std::vector<Vec3> vertices;
+	parseDoubleVecData(*vertices_element->first_property, &vertices);
+	parseBinaryArray(*polys_element->first_property, &geom->to_old_vertices);
+	
+	std::vector<int> to_old_indices;
+	geom->triangulate(&geom->to_old_vertices, &to_old_indices);
+	geom->vertices.resize(geom->to_old_vertices.size());
 
-	Element* layer_uv_element = findChild(element, "LayerElementUV");
+	for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
+	{
+		geom->vertices[i] = vertices[geom->to_old_vertices[i]];
+	}
+
+	const Element* layer_uv_element = findChild(element, "LayerElementUV");
 	if (layer_uv_element)
 	{
 		std::vector<Vec2> tmp;
@@ -1019,9 +1095,10 @@ Geometry* parseGeometry(const Scene& scene, Element& element)
 		parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping);
 		geom->uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
 		splat(&geom->uvs, mapping, tmp, tmp_indices);
+		remap(&geom->uvs, to_old_indices);
 	}
 
-	Element* layer_normal_element = findChild(element, "LayerElementNormal");
+	const Element* layer_normal_element = findChild(element, "LayerElementNormal");
 	if (layer_normal_element)
 	{
 		std::vector<Vec3> tmp;
@@ -1029,22 +1106,21 @@ Geometry* parseGeometry(const Scene& scene, Element& element)
 		GeometryImpl::VertexDataMapping mapping;
 		parseVertexData(*layer_normal_element, "Normals", "NormalsIndex", &tmp, &tmp_indices, &mapping);
 		splat(&geom->normals, mapping, tmp, tmp_indices);
+		remap(&geom->normals, to_old_indices);
 	}
-
-	geom->triangulate();
 
 	return geom;
 }
 
 
-void parseConnections(Element& root, Scene* scene)
+void parseConnections(const Element& root, Scene* scene)
 {
 	assert(scene);
 
-	Element* connections = findChild(root, "Connections");
+	const Element* connections = findChild(root, "Connections");
 	if (!connections) return;
 
-	Element* connection = connections->child;
+	const Element* connection = connections->child;
 	while (connection)
 	{
 		assert(connection->first_property);
@@ -1075,14 +1151,15 @@ void parseConnections(Element& root, Scene* scene)
 }
 
 
-void parseObjects(Element& root, Scene* scene)
+void parseObjects(const Element& root, Scene* scene)
 {
-	Element* objs = findChild(root, "Objects");
+	const Element* objs = findChild(root, "Objects");
 	if (!objs) return;
 
 	scene->m_root = new Root(*scene, root);
+	scene->m_root->id = 0;
 
-	Element* object = objs->child;
+	const Element* object = objs->child;
 	while (object)
 	{
 		u64 uuid = getElementUUID(*object);
@@ -1092,17 +1169,18 @@ void parseObjects(Element& root, Scene* scene)
 
 	for (auto iter : scene->m_object_map)
 	{
+		Object* obj = nullptr;
 		if (iter.second.element->id == "Geometry")
 		{
 			Property* last_prop = getLastProperty(iter.second.element);
 			if (last_prop && last_prop->value == "Mesh")
 			{
-				scene->m_object_map[iter.first].object = parseGeometry(*scene, *iter.second.element);
+				obj = parseGeometry(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "Material")
 		{
-			scene->m_object_map[iter.first].object = parseMaterial(*scene, *iter.second.element);
+			obj = parseMaterial(*scene, *iter.second.element);
 		}
 		else if (iter.second.element->id == "Deformer")
 		{
@@ -1111,14 +1189,14 @@ void parseObjects(Element& root, Scene* scene)
 			if (class_prop)
 			{
 				if (class_prop->getValue() == "Cluster")
-					scene->m_object_map[iter.first].object = parseCluster(*scene, *iter.second.element);
+					obj = parseCluster(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Skin")
-					scene->m_object_map[iter.first].object = parse<SkinImpl>(*scene, *iter.second.element);
+					obj = parse<SkinImpl>(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "NodeAttribute")
 		{
-			scene->m_object_map[iter.first].object = parseNodeAttribute(*scene, *iter.second.element);
+			obj = parseNodeAttribute(*scene, *iter.second.element);
 		}
 		else if (iter.second.element->id == "Model")
 		{
@@ -1127,17 +1205,27 @@ void parseObjects(Element& root, Scene* scene)
 			if (class_prop)
 			{
 				if (class_prop->getValue() == "Mesh")
-					scene->m_object_map[iter.first].object = parseMesh(*scene, *iter.second.element);
+					obj = parseMesh(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "LimbNode")
-					scene->m_object_map[iter.first].object = parseLimbNode(*scene, *iter.second.element);
+					obj = parseLimbNode(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Null")
-					scene->m_object_map[iter.first].object = parse<NullImpl>(*scene, *iter.second.element);
+					obj = parse<NullImpl>(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "Texture")
 		{
-			scene->m_object_map[iter.first].object = parseTexture(*scene, *iter.second.element);
+			obj = parseTexture(*scene, *iter.second.element);
 		}
+
+		scene->m_object_map[iter.first].object = obj;
+		if(obj) obj->id = iter.first;
+	}
+
+	for (auto iter : scene->m_object_map)
+	{
+		Object* obj = iter.second.object;
+		if(obj && obj->getType() == Object::CLUSTER)
+			((ClusterImpl*)iter.second.object)->postprocess();
 	}
 }
 
@@ -1163,7 +1251,7 @@ int getVertexDataCount(GeometryImpl::VertexDataMapping mapping,
 
 IElement* Object::resolveProperty(const char* name) const
 {
-	Element* props = findChild((ofbx::Element&)element, "Properties70");
+	const Element* props = findChild((const ofbx::Element&)element, "Properties70");
 	if (!props) return nullptr;
 
 	Element* prop = props->child;

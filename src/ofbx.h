@@ -138,8 +138,9 @@ struct Object
 	template <typename T> T* resolveObjectLink() const { return static_cast<T*>(resolveObjectLink(T::s_type)); }
 	template <typename T> T* resolveObjectLink(int idx) const { return static_cast<T*>(resolveObjectLink(T::s_type, idx)); }
 
+	u64 id;
 	char name[128];
-	
+
 protected:
 	IElement* resolveProperty(const char* name) const;
 	const Scene& scene;
@@ -209,9 +210,7 @@ struct Geometry : Object
 	Geometry(const Scene& _scene, const IElement& _element);
 
 	virtual const Vec3* getVertices() const = 0;
-	virtual const int* getIndices() const = 0;
 	virtual int getVertexCount() const = 0;
-	virtual int getIndexCount() const = 0;
 
 	virtual int getUVCount() const = 0;
 	virtual int getNormalCount() const = 0;
