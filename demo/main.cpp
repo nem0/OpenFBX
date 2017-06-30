@@ -180,9 +180,7 @@ void showObjectGUI(ofbx::Object& object)
 
 	ImGuiTreeElementFlags flags = g_selected_object == &object ? ImGuiTreeElementFlags_Selected : 0;
 	char tmp[128];
-	ofbx::IElementProperty* prop = object.element.getFirstProperty();
-	ofbx::u64 id = prop ? prop->getValue().toLong() : 0;
-	sprintf_s(tmp, "%" PRId64 " %s", id, label);
+	sprintf_s(tmp, "%" PRId64 " %s (%s)", object.id, object.name, label);
 	if (ImGui::TreeElementEx(tmp, flags))
 	{
 		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_object = &object;
@@ -236,17 +234,15 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			fprintf(fp, "v %f %f %f\n", v.x, v.y, v.z);
 		}
 
-		int index_count = mesh.getIndexCount();
-		
 		bool has_normals = mesh.getNormalCount() > 0;
 		if (has_normals)
 		{
-			std::vector<ofbx::Vec3> normals;
-			normals.resize(index_count);
-			mesh.resolveNormals(&normals[0]);
+			const ofbx::Vec3* normals = mesh.getNormals();
+			int count = mesh.getNormalCount();
 
-			for (ofbx::Vec3 n : normals)
+			for (int i = 0; i < count; ++i)
 			{
+				ofbx::Vec3 n = normals[i];
 				fprintf(fp, "vn %f %f %f\n", n.x, n.y, n.z);
 			}
 		}
@@ -254,32 +250,32 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		bool has_uvs = mesh.getUVCount() > 0;
 		if (has_uvs)
 		{
-			std::vector<ofbx::Vec2> uvs;
-			uvs.resize(index_count);
-			mesh.resolveUVs(&uvs[0]);
+			const ofbx::Vec2* uvs = mesh.getUVs();
+			int count = mesh.getNormalCount();
 
-			for (ofbx::Vec2 uv : uvs)
+			for (int i = 0; i < count; ++i)
 			{
+				ofbx::Vec2 uv = uvs[i];
 				fprintf(fp, "vt %f %f\n", uv.x, uv.y);
 			}
 		}
 
-		const int* indices = mesh.getIndices();
 		bool new_face = true;
-		for (int i = 0; i < index_count; ++i)
+		int count = mesh.getVertexCount();
+		for (int i = 0; i < count; ++i)
 		{
 			if (new_face)
 			{
 				fputs("f ", fp);
 				new_face = false;
 			}
-			int idx = indices[i];
-			int vertex_idx = indices_offset + (idx >= 0 ? idx + 1 : -idx);
+			int idx = i + 1;
+			int vertex_idx = indices_offset + idx;
 			fprintf(fp, "%d", vertex_idx);
 
 			if (has_normals)
 			{
-				fprintf(fp, "/%d", normals_offset + i + 1);
+				fprintf(fp, "/%d", idx);
 			}
 			else
 			{
@@ -288,7 +284,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 
 			if (has_uvs)
 			{
-				fprintf(fp, "/%d", normals_offset + i + 1);
+				fprintf(fp, "/%d", idx);
 			}
 			else
 			{
@@ -300,7 +296,6 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		}
 
 		indices_offset += vertex_count;
-		normals_offset += index_count;
 		++obj_idx;
 	}
 	fclose(fp);

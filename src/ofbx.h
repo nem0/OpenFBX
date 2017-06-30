@@ -133,7 +133,18 @@ struct Object
 	Object* resolveObjectLinkReverse(Type type) const;
 	Object* resolveObjectLink(Type type, int idx) const;
 	Object* resolveObjectLink(Type type, const char* property) const;
+	IElement* resolveProperty(const char* name) const;
 	Object* getParent() const;
+
+	Vec3 getRotationOffset() const;
+	Vec3 getRotationPivot() const;
+	Vec3 getPostRotation() const;
+	Vec3 getScalingOffset() const;
+	Vec3 getScalingPivot() const;
+	Vec3 getPreRotation() const;
+	Vec3 getLocalTranslation() const;
+	Vec3 getLocalRotation() const;
+	Vec3 getLocalScaling() const;
 
 	template <typename T> T* resolveObjectLink() const { return static_cast<T*>(resolveObjectLink(T::s_type)); }
 	template <typename T> T* resolveObjectLink(int idx) const { return static_cast<T*>(resolveObjectLink(T::s_type, idx)); }
@@ -142,7 +153,6 @@ struct Object
 	char name[128];
 
 protected:
-	IElement* resolveProperty(const char* name) const;
 	const Scene& scene;
 	const IElement& element;
 	bool is_node;

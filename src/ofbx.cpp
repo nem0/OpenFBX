@@ -122,6 +122,17 @@ struct Element : IElement
 };
 
 
+Vec3 resolveVec3Property(const Object& object, const char* name, const Vec3& default_value)
+{
+	Element* element = (Element*)object.resolveProperty(name);
+	if (!element) return default_value;
+	Property* x = (Property*)element->getProperty(4);
+	if (!x || !x->next || !x->next->next) return default_value;
+
+	return {x->value.toDouble(), x->next->value.toDouble(), x->next->next->value.toDouble()};
+}
+
+
 Object::Object(const Scene& _scene, const IElement& _element)
 	: scene(_scene)
 	, element(_element)
@@ -387,20 +398,14 @@ struct MeshImpl : Mesh
 	}
 
 
-	Vec3 resolveVec3Property(const char* name, const Vec3& default_value) const
+	Vec3 getGeometricTranslation() const override
 	{
-		Element* element = (Element*)resolveProperty(name);
-		if (!element) return default_value;
-		Property* x = (Property*)element->getProperty(4);
-		if (!x || !x->next || !x->next->next) return default_value;
-
-		return{ x->value.toDouble(), x->next->value.toDouble(), x->next->next->value.toDouble() };
+		return resolveVec3Property(*this, "GeometricTranslation", {0, 0, 0});
 	}
 
 
-	Vec3 getGeometricTranslation() const override { return resolveVec3Property("GeometricTranslation", {0, 0, 0}); }
-	Vec3 getGeometricRotation() const override { return resolveVec3Property("GeometricRotation", {0, 0, 0}); }
-	Vec3 getGeometricScaling() const override { return resolveVec3Property("GeometricScaling", {1, 1, 1}); }
+	Vec3 getGeometricRotation() const override { return resolveVec3Property(*this, "GeometricRotation", {0, 0, 0}); }
+	Vec3 getGeometricScaling() const override { return resolveVec3Property(*this, "GeometricScaling", {1, 1, 1}); }
 	Type getType() const override { return MESH; }
 	Matrix evaluateGlobalTransform() const override
 	{
@@ -1246,6 +1251,60 @@ int getVertexDataCount(GeometryImpl::VertexDataMapping mapping,
 	{
 		return (int)indices.size();
 	}
+}
+
+
+Vec3 Object::getRotationOffset() const
+{
+	return resolveVec3Property(*this, "RotationOffset", {0, 0, 0});
+}
+
+
+Vec3 Object::getRotationPivot() const
+{
+	return resolveVec3Property(*this, "RotationPivot", {0, 0, 0});
+}
+
+
+Vec3 Object::getPostRotation() const
+{
+	return resolveVec3Property(*this, "PostRotation", {0, 0, 0});
+}
+
+
+Vec3 Object::getScalingOffset() const
+{
+	return resolveVec3Property(*this, "ScalingOffset", {0, 0, 0});
+}
+
+
+Vec3 Object::getScalingPivot() const
+{
+	return resolveVec3Property(*this, "ScalingPivot", {0, 0, 0});
+}
+
+
+Vec3 Object::getLocalTranslation() const
+{
+	return resolveVec3Property(*this, "Lcl Translation", { 0, 0, 0 });
+}
+
+
+Vec3 Object::getPreRotation() const
+{
+	return resolveVec3Property(*this, "PreRotation", { 0, 0, 0 });
+}
+
+
+Vec3 Object::getLocalRotation() const
+{
+	return resolveVec3Property(*this, "Lcl Rotation", {0, 0, 0});
+}
+
+
+Vec3 Object::getLocalScaling() const
+{
+	return resolveVec3Property(*this, "Lcl Scaling", {1, 1, 1});
 }
 
 
