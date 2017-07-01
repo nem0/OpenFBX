@@ -82,6 +82,8 @@ struct IElementProperty
 		DOUBLE = 'D',
 		ARRAY_DOUBLE = 'd',
 		ARRAY_INT = 'i',
+		ARRAY_LONG = 'l',
+		ARRAY_FLOAT = 'f'
 	};
 	virtual ~IElementProperty() {}
 	virtual Type getType() const = 0;
@@ -90,6 +92,8 @@ struct IElementProperty
 	virtual int getCount() const = 0;
 	virtual void getValues(double* values, int max_size) const = 0;
 	virtual void getValues(int* values, int max_size) const = 0;
+	virtual void getValues(float* values, int max_size) const = 0;
+	virtual void getValues(u64* values, int max_size) const = 0;
 };
 
 
@@ -102,7 +106,10 @@ struct IElement
 };
 
 
+struct AnimationCurveNode;
+struct AnimationLayer;
 struct Scene;
+struct IScene;
 
 
 struct Object
@@ -130,13 +137,12 @@ struct Object
 	virtual ~Object() {}
 	virtual Type getType() const = 0;
 	
+	const IScene& getScene() const;
 	int resolveObjectLinkCount() const;
 	int resolveObjectLinkCount(Type type) const;
 	Object* resolveObjectLink(int idx) const;
-	Object* resolveObjectLink(Type type) const;
+	Object* resolveObjectLink(Type type, const char* property, int idx) const;
 	Object* resolveObjectLinkReverse(Type type) const;
-	Object* resolveObjectLink(Type type, int idx) const;
-	Object* resolveObjectLink(Type type, const char* property) const;
 	IElement* resolveProperty(const char* name) const;
 	Object* getParent() const;
 
@@ -149,9 +155,13 @@ struct Object
 	Vec3 getLocalTranslation() const;
 	Vec3 getLocalRotation() const;
 	Vec3 getLocalScaling() const;
+	Matrix evaluateGlobalTransform() const;
+	const AnimationCurveNode* getCurveNode(const char* prop, const AnimationLayer& layer) const;
 
-	template <typename T> T* resolveObjectLink() const { return static_cast<T*>(resolveObjectLink(T::s_type)); }
-	template <typename T> T* resolveObjectLink(int idx) const { return static_cast<T*>(resolveObjectLink(T::s_type, idx)); }
+	template <typename T> T* resolveObjectLink(int idx) const
+	{
+		return static_cast<T*>(resolveObjectLink(T::s_type, nullptr, idx));
+	}
 
 	u64 id;
 	char name[128];
@@ -239,10 +249,10 @@ struct Mesh : Object
 
 	Mesh(const Scene& _scene, const IElement& _element);
 
+	virtual const Geometry* getGeometry() const = 0;
 	virtual Vec3 getGeometricTranslation() const = 0;
 	virtual Vec3 getGeometricRotation() const = 0;
 	virtual Vec3 getGeometricScaling() const = 0;
-	virtual Matrix evaluateGlobalTransform() const = 0;
 	virtual Skin* getSkin() const = 0;
 };
 
@@ -252,6 +262,7 @@ struct AnimationStack : Object
 	static const Type s_type = ANIMATION_STACK;
 
 	AnimationStack(const Scene& _scene, const IElement& _element);
+	virtual const AnimationLayer* getLayer(int index) const = 0;
 };
 
 
@@ -268,6 +279,10 @@ struct AnimationCurve : Object
 	static const Type s_type = ANIMATION_CURVE;
 
 	AnimationCurve(const Scene& _scene, const IElement& _element);
+
+	virtual int getKeyCount() const = 0;
+	virtual const u64* getKeyTime() const = 0;
+	virtual const float* getKeyValue() const = 0;
 };
 
 
@@ -276,6 +291,8 @@ struct AnimationCurveNode : Object
 	static const Type s_type = ANIMATION_CURVE_NODE;
 
 	AnimationCurveNode(const Scene& _scene, const IElement& _element);
+
+	virtual Matrix getNodeLocalTransform(double time) const = 0;
 };
 
 
@@ -283,6 +300,10 @@ struct TakeInfo
 {
 	DataView name;
 	DataView filename;
+	double local_time_from;
+	double local_time_to;
+	double reference_time_from;
+	double reference_time_to;
 };
 
 

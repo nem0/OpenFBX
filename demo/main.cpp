@@ -47,6 +47,7 @@ void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 	{
 		case ofbx::IElementProperty::DOUBLE: sprintf_s(tmp, "%f", prop.getValue().toDouble()); break;
 		case ofbx::IElementProperty::LONG: sprintf_s(tmp, "%" PRId64, prop.getValue().toLong()); break;
+		case ofbx::IElementProperty::INTEGER: sprintf_s(tmp, "%d", *(int*)prop.getValue().begin); break;
 		case ofbx::IElementProperty::STRING: prop.getValue().toString(tmp); break;
 		default: sprintf_s(tmp, "Type: %c", (char)prop.getType()); break;
 	}
@@ -90,46 +91,19 @@ void showGUI(ofbx::IElement& element)
 }
 
 
-void showArrayDouble(ofbx::IElementProperty& prop)
+template <typename T>
+void showArray(const char* label, const char* format, ofbx::IElementProperty& prop)
 {
-	if (!ImGui::CollapsingHeader("Double Array")) return;
-
-	static bool as_vec3 = false;
-	ImGui::Checkbox("As Vec3", &as_vec3);
-
-	int count = prop.getCount();
-
-	ImGui::Text("Count: %d", count);
-	std::vector<double> tmp;
-	tmp.resize(count);
-	prop.getValues(&tmp[0], int(sizeof(tmp[0]) * tmp.size()));
-	if (as_vec3)
-	{
-		for (int i = 0; i < tmp.size(); i += 3)
-		{
-			ImGui::Text("%f %f %f", tmp[i], tmp[i + 1], tmp[i + 2]);
-		}
-		return;
-	}
-	for (double v : tmp)
-	{
-		ImGui::Text("%f", v);
-	}
-}
-
-
-void showArrayInt(ofbx::IElementProperty& prop)
-{
-	if (!ImGui::CollapsingHeader("Int Array")) return;
+	if (!ImGui::CollapsingHeader(label)) return;
 
 	int count = prop.getCount();
 	ImGui::Text("Count: %d", count);
-	std::vector<int> tmp;
+	std::vector<T> tmp;
 	tmp.resize(count);
 	prop.getValues(&tmp[0], int(sizeof(tmp[0]) * tmp.size()));
-	for (int v : tmp)
+	for (T v : tmp)
 	{
-		ImGui::Text("%d", v);
+		ImGui::Text(format, v);
 	}
 }
 
@@ -144,8 +118,10 @@ void showGUI(ofbx::IElementProperty& prop)
 		case ofbx::IElementProperty::FLOAT: ImGui::Text("Float: %f", *(float*)prop.getValue().begin); break;
 		case ofbx::IElementProperty::DOUBLE: ImGui::Text("Double: %f", *(double*)prop.getValue().begin); break;
 		case ofbx::IElementProperty::INTEGER: ImGui::Text("Integer: %d", *(int*)prop.getValue().begin); break;
-		case ofbx::IElementProperty::ARRAY_DOUBLE: showArrayDouble(prop); break;
-		case ofbx::IElementProperty::ARRAY_INT: showArrayInt(prop); break;
+		case ofbx::IElementProperty::ARRAY_FLOAT: showArray<float>("float array", "%f", prop); break;
+		case ofbx::IElementProperty::ARRAY_DOUBLE: showArray<double>("double array", "%f", prop); break;
+		case ofbx::IElementProperty::ARRAY_INT: showArray<int>("int array", "%d", prop); break;
+		case ofbx::IElementProperty::ARRAY_LONG: showArray<ofbx::u64>("long array", "%" PRId64, prop); break;
 		case ofbx::IElementProperty::STRING:
 			toString(prop.getValue(), tmp);
 			ImGui::Text("String: %s", tmp);
@@ -212,6 +188,13 @@ void showObjectsGUI(const ofbx::IScene& scene)
 	}
 	ofbx::Object* root = scene.getRoot();
 	if (root) showObjectGUI(*root);
+
+	int count = scene.resolveObjectCount(ofbx::Object::ANIMATION_STACK);
+	for (int i = 0; i < count; ++i)
+	{
+		ofbx::Object* stack = scene.resolveObject(ofbx::Object::ANIMATION_STACK, i);
+		showObjectGUI(*stack);
+	}
 
 	ImGui::End();
 }

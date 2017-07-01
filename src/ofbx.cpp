@@ -71,11 +71,21 @@ struct Property : IElementProperty
 	DataView getValue() const override { return value; }
 	int getCount() const override 
 	{
-		assert(type == ARRAY_DOUBLE || type == ARRAY_INT);
+		assert(type == ARRAY_DOUBLE || type == ARRAY_INT || type == ARRAY_FLOAT || type == ARRAY_LONG);
 		return int(*(u32*)value.begin);
 	}
 
 	void getValues(double* values, int max_size) const override
+	{
+		parseBinaryArrayRaw(*this, values, max_size);
+	}
+
+	void getValues(float* values, int max_size) const override
+	{
+		parseBinaryArrayRaw(*this, values, max_size);
+	}
+
+	void getValues(u64* values, int max_size) const override
 	{
 		parseBinaryArrayRaw(*this, values, max_size);
 	}
@@ -407,20 +417,28 @@ struct MeshImpl : Mesh
 	Vec3 getGeometricRotation() const override { return resolveVec3Property(*this, "GeometricRotation", {0, 0, 0}); }
 	Vec3 getGeometricScaling() const override { return resolveVec3Property(*this, "GeometricScaling", {1, 1, 1}); }
 	Type getType() const override { return MESH; }
-	Matrix evaluateGlobalTransform() const override
+
+	const Geometry* getGeometry() const override
 	{
-		// TODO
-		return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+		return geometry;
 	}
+
 
 	Skin* getSkin() const override
 	{
-		Geometry* geom = resolveObjectLink<ofbx::Geometry>();
+		Geometry* geom = resolveObjectLink<ofbx::Geometry>(0);
 		if (!geom) return nullptr;
-		return geom->resolveObjectLink<ofbx::Skin>();
+		return geom->resolveObjectLink<ofbx::Skin>(0);
 	}
 
 
+	void postprocess()
+	{
+		geometry = resolveObjectLink<ofbx::Geometry>(0);
+	}
+
+
+	const Geometry* geometry;
 	const Scene& scene;
 };
 
@@ -691,6 +709,14 @@ struct AnimationStackImpl : AnimationStack
 	{
 	}
 
+
+	const AnimationLayer* getLayer(int index) const
+	{
+		assert(index == 0);
+		return resolveObjectLink<ofbx::AnimationLayer>(index);
+	}
+
+
 	Type getType() const override { return ANIMATION_STACK; }
 };
 
@@ -713,18 +739,13 @@ struct AnimationCurveImpl : AnimationCurve
 	{
 	}
 
+	int getKeyCount() const override { return (int)times.size(); }
+	const u64* getKeyTime() const override { return &times[0]; }
+	const float* getKeyValue() const override { return &values[0]; }
+
+	std::vector<u64> times;
+	std::vector<float> values;
 	Type getType() const override { return ANIMATION_CURVE; }
-};
-
-
-struct AnimationCurveNodeImpl : AnimationCurveNode
-{
-	AnimationCurveNodeImpl(const Scene& _scene, const IElement& _element)
-		: AnimationCurveNode(_scene, _element)
-	{
-	}
-
-	Type getType() const override { return ANIMATION_CURVE_NODE; }
 };
 
 
@@ -865,6 +886,66 @@ struct Scene : IScene
 };
 
 
+
+struct AnimationCurveNodeImpl : AnimationCurveNode
+{
+	AnimationCurveNodeImpl(const Scene& _scene, const IElement& _element)
+		: AnimationCurveNode(_scene, _element)
+	{
+	}
+
+
+	Matrix getNodeLocalTransform(double time) const override
+	{
+		// TOOD
+		assert(false);
+		return {0};
+	}
+
+
+	struct Curve
+	{
+		const AnimationCurve* curve;
+		const Scene::Connection* connection;
+	};
+
+
+	Curve getConnection(const Object& obj, int idx)
+	{
+		u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
+		for (auto& connection : scene.m_connections)
+		{
+			if (connection.to == id && connection.from != 0)
+			{
+				Object* obj = scene.m_object_map.find(connection.from)->second.object;
+				if (obj)
+				{
+					if (idx == 0)
+					{
+						return {(const AnimationCurve*)obj, &connection};
+					}
+					--idx;
+				}
+			}
+		}
+		return {nullptr, nullptr};
+	}
+
+
+	void postprocess()
+	{
+		curves[0] = getConnection(*this, 0);
+		curves[1] = getConnection(*this, 1);
+		curves[2] = getConnection(*this, 2);
+		assert(getConnection(*this, 3).curve == nullptr);
+	}
+
+
+	Type getType() const override { return ANIMATION_CURVE_NODE; }
+	Curve curves[3];
+};
+
+
 Property* getLastProperty(const Element* element)
 {
 	Property* prop = element->first_property;
@@ -985,6 +1066,7 @@ template <typename T> void parseBinaryArrayRaw(const Property& property, T* out,
 	int elem_size = 1;
 	switch (property.type)
 	{
+	case 'l': elem_size = 8; break;
 	case 'd': elem_size = 8; break;
 	case 'f': elem_size = 4; break;
 	case 'i': elem_size = 4; break;
@@ -1141,6 +1223,16 @@ static void remap(std::vector<T>* out, std::vector<int> map)
 }
 
 
+AnimationCurve* parseAnimationCurve(const Scene& scene, const Element& element)
+{
+	AnimationCurveImpl* curve = new AnimationCurveImpl(scene, element);
+
+
+
+	return curve;
+}
+
+
 Geometry* parseGeometry(const Scene& scene, const Element& element)
 {
 	assert(element.first_property);
@@ -1245,6 +1337,19 @@ void parseTakes(Scene* scene)
 			take.name = object->first_property->value;
 			const Element* filename = findChild(*object, "FileName");
 			if (filename) take.filename = filename->first_property->value;
+			const Element* local_time = findChild(*object, "LocalTime");
+			if (local_time)
+			{
+				take.local_time_from = double(local_time->first_property->value.toLong()) / 46186158000L;
+				take.local_time_to = double(local_time->first_property->next->value.toLong()) / 46186158000L;
+			}
+			const Element* reference_time = findChild(*object, "ReferenceTime");
+			if (reference_time)
+			{
+				take.reference_time_from = double(reference_time->first_property->value.toLong()) / 46186158000L;
+				take.reference_time_to = double(reference_time->first_property->next->value.toLong()) / 46186158000L;
+			}
+
 			scene->m_take_infos.push_back(take);
 		}
 		
@@ -1295,7 +1400,7 @@ void parseObjects(const Element& root, Scene* scene)
 		}
 		else if (iter.second.element->id == "AnimationCurve")
 		{
-			obj = parse<AnimationCurveImpl>(*scene, *iter.second.element);
+			obj = parseAnimationCurve(*scene, *iter.second.element);
 		}
 		else if (iter.second.element->id == "AnimationCurveNode")
 		{
@@ -1343,8 +1448,13 @@ void parseObjects(const Element& root, Scene* scene)
 	for (auto iter : scene->m_object_map)
 	{
 		Object* obj = iter.second.object;
-		if(obj && obj->getType() == Object::CLUSTER)
-			((ClusterImpl*)iter.second.object)->postprocess();
+		if (!obj) continue;
+		switch (obj->getType())
+		{
+			case Object::CLUSTER: ((ClusterImpl*)iter.second.object)->postprocess(); break;
+			case Object::MESH: ((MeshImpl*)iter.second.object)->postprocess(); break;
+			case Object::ANIMATION_CURVE_NODE: ((AnimationCurveNodeImpl*)iter.second.object)->postprocess(); break;
+		}
 	}
 }
 
@@ -1398,6 +1508,18 @@ Vec3 Object::getScalingPivot() const
 }
 
 
+const AnimationCurveNode* Object::getCurveNode(const char* prop, const AnimationLayer& layer) const
+{
+	const AnimationCurveNode* curve_node = nullptr;
+	for (int i = 0; curve_node = (const AnimationCurveNode*)resolveObjectLink(Object::ANIMATION_CURVE_NODE, prop, i); ++i)
+	{
+		Object* curve_node_layer = curve_node->resolveObjectLinkReverse(Object::ANIMATION_LAYER);
+		if (curve_node_layer == &layer) return curve_node;
+	}
+	return nullptr;
+}
+
+
 Vec3 Object::getLocalTranslation() const
 {
 	return resolveVec3Property(*this, "Lcl Translation", { 0, 0, 0 });
@@ -1422,6 +1544,13 @@ Vec3 Object::getLocalScaling() const
 }
 
 
+Matrix Object::evaluateGlobalTransform() const
+{
+	// TODO
+	return{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+}
+
+
 IElement* Object::resolveProperty(const char* name) const
 {
 	const Element* props = findChild((const ofbx::Element&)element, "Properties70");
@@ -1435,21 +1564,6 @@ IElement* Object::resolveProperty(const char* name) const
 			return prop;
 		}
 		prop = prop->sibling;
-	}
-	return nullptr;
-}
-
-
-Object* Object::resolveObjectLink(Object::Type type) const
-{
-	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
-	for (auto& connection : scene.m_connections)
-	{
-		if (connection.to == id && connection.from != 0)
-		{
-			Object* obj = scene.m_object_map.find(connection.from)->second.object;
-			if (obj && obj->getType() == type) return obj;
-		}
 	}
 	return nullptr;
 }
@@ -1470,25 +1584,6 @@ Object* Object::resolveObjectLinkReverse(Object::Type type) const
 }
 
 
-Object* Object::resolveObjectLink(Object::Type type, int idx) const
-{
-	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
-	for (auto& connection : scene.m_connections)
-	{
-		if (connection.to == id && connection.from != 0)
-		{
-			Object* obj = scene.m_object_map.find(connection.from)->second.object;
-			if (obj && obj->getType() == type)
-			{
-				if(idx == 0) return obj;
-				--idx;
-			}
-		}
-	}
-	return nullptr;
-}
-
-
 int Object::resolveObjectLinkCount(Object::Type type) const
 {
 	int count = 0;
@@ -1502,6 +1597,12 @@ int Object::resolveObjectLinkCount(Object::Type type) const
 		}
 	}
 	return count;
+}
+
+
+const IScene& Object::getScene() const 
+{
+	return scene;
 }
 
 
@@ -1543,7 +1644,7 @@ Object* Object::resolveObjectLink(int idx) const
 }
 
 
-Object* Object::resolveObjectLink(Object::Type type, const char* property) const
+Object* Object::resolveObjectLink(Object::Type type, const char* property, int idx) const
 {
 	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
 	for (auto& connection : scene.m_connections)
@@ -1551,9 +1652,13 @@ Object* Object::resolveObjectLink(Object::Type type, const char* property) const
 		if (connection.to == id && connection.from != 0)
 		{
 			Object* obj = scene.m_object_map.find(connection.from)->second.object;
-			if (obj->getType() == type)
+			if (obj && obj->getType() == type)
 			{
-				if(connection.property == property) return obj;
+				if (property == nullptr || connection.property == property)
+				{
+					if (idx == 0) return obj;
+					--idx;
+				}
 			}
 		}
 	}
