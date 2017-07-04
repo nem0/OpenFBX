@@ -1819,10 +1819,12 @@ Vec3 Object::getLocalScaling() const
 }
 
 
-Matrix Object::evaluateGlobalTransform() const
+Matrix Object::getGlobalTransform() const
 {
-	// TODO
-	return{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+	const Object* parent = getParent();
+	if (!parent) return evalLocal(getLocalTranslation(), getLocalRotation());
+	
+	return parent->getGlobalTransform() * evalLocal(getLocalTranslation(), getLocalRotation());
 }
 
 

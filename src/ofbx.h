@@ -155,7 +155,7 @@ struct Object
 	Vec3 getLocalTranslation() const;
 	Vec3 getLocalRotation() const;
 	Vec3 getLocalScaling() const;
-	Matrix evaluateGlobalTransform() const;
+	Matrix getGlobalTransform() const;
 	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
 	const AnimationCurveNode* getCurveNode(const char* prop, const AnimationLayer& layer) const;
 
