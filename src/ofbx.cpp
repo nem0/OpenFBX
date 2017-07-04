@@ -1,6 +1,7 @@
 #include "ofbx.h"
 #include "miniz.h"
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -28,6 +29,121 @@ struct Cursor
 	const u8* begin;
 	const u8* end;
 };
+
+
+static void setTranslation(const Vec3& t, Matrix* mtx)
+{
+	mtx->m[12] = t.x;
+	mtx->m[13] = t.y;
+	mtx->m[14] = t.z;
+}
+
+
+static Vec3 operator-(const Vec3& v)
+{
+	return{ -v.x, -v.y, -v.z };
+}
+
+
+static Matrix operator*(const Matrix& lhs, const Matrix& rhs)
+{
+	Matrix res;
+	for (int j = 0; j < 4; ++j)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			double tmp = 0;
+			for (int k = 0; k < 4; ++k)
+			{
+				tmp += lhs.m[i + k * 4] * rhs.m[k + j * 4];
+			}
+			res.m[i + j * 4] = tmp;
+		}
+	}
+	return res;
+}
+
+
+static Matrix makeIdentity()
+{
+	return
+	{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+	};
+}
+
+static Matrix rotationX(double angle)
+{
+	Matrix m = makeIdentity();
+	double c = cos(angle);
+	double s = sin(angle);
+
+	m.m[5] = m.m[10] = c;
+	m.m[9] = -s;
+	m.m[6] = s;
+
+	return m;
+}
+
+
+static Matrix rotationY(double angle)
+{
+	Matrix m = makeIdentity();
+	double c = cos(angle);
+	double s = sin(angle);
+
+	m.m[0] = m.m[10] = c;
+	m.m[8] = s;
+	m.m[2] = -s;
+
+	return m;
+}
+
+
+static Matrix rotationZ(double angle)
+{
+	Matrix m = makeIdentity();
+	double c = cos(angle);
+	double s = sin(angle);
+
+	m.m[0] = m.m[5] = c;
+	m.m[4] = -s;
+	m.m[1] = s;
+
+	return m;
+}
+
+
+// TODO order
+static Matrix getRotationMatrix(const ofbx::Vec3& euler)
+{
+	const double TO_RAD = 3.1415926535897932384626433832795028 / 180.0;
+	Matrix rx = rotationX(euler.x * TO_RAD);
+	Matrix ry = rotationY(euler.y * TO_RAD);
+	Matrix rz = rotationZ(euler.z * TO_RAD);
+	return rz * ry * rx;
+}
+
+
+double fbxTimeToSeconds(u64 value)
+{
+	return double(value) / 46186158000L;
+}
+
+
+Vec3 operator*(const Vec3& v, float f)
+{
+	return{ v.x * f, v.y * f, v.z * f };
+}
+
+
+Vec3 operator + (const Vec3& a, const Vec3& b)
+{
+	return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
 
 
 u64 DataView::toLong() const
@@ -408,15 +524,25 @@ struct MeshImpl : Mesh
 	}
 
 
-	Vec3 getGeometricTranslation() const override
+	Matrix getGeometricMatrix() const override
 	{
-		return resolveVec3Property(*this, "GeometricTranslation", {0, 0, 0});
+		Vec3 translation = resolveVec3Property(*this, "GeometricTranslation", {0, 0, 0});
+		Vec3 rotation = resolveVec3Property(*this, "GeometricRotation", {0, 0, 0});
+		Vec3 scale = resolveVec3Property(*this, "GeometricScaling", {1, 1, 1});
+
+		Matrix scale_mtx = makeIdentity();
+		scale_mtx.m[0] = (float)scale.x;
+		scale_mtx.m[5] = (float)scale.y;
+		scale_mtx.m[10] = (float)scale.z;
+		Matrix mtx = getRotationMatrix(rotation);
+		setTranslation(translation, &mtx);
+
+		return scale_mtx * mtx;
 	}
 
 
-	Vec3 getGeometricRotation() const override { return resolveVec3Property(*this, "GeometricRotation", {0, 0, 0}); }
-	Vec3 getGeometricScaling() const override { return resolveVec3Property(*this, "GeometricScaling", {1, 1, 1}); }
-	Type getType() const override { return MESH; }
+	Type getType() const override { return Type::MESH; }
+
 
 	const Geometry* getGeometry() const override
 	{
@@ -454,7 +580,7 @@ struct MaterialImpl : Material
 		: Material(_scene, _element)
 	{
 	}
-	Type getType() const override { return MATERIAL; }
+	Type getType() const override { return Type::MATERIAL; }
 };
 
 
@@ -465,7 +591,7 @@ struct LimbNodeImpl : Object
 	{
 		is_node = true;
 	}
-	Type getType() const override { return LIMB_NODE; }
+	Type getType() const override { return Type::LIMB_NODE; }
 };
 
 
@@ -476,7 +602,7 @@ struct NullImpl : Object
 	{
 		is_node = true;
 	}
-	Type getType() const override { return NULL_NODE; }
+	Type getType() const override { return Type::NULL_NODE; }
 };
 
 
@@ -491,7 +617,7 @@ struct NodeAttributeImpl : NodeAttribute
 		: NodeAttribute(_scene, _element)
 	{
 	}
-	Type getType() const override { return NOTE_ATTRIBUTE; }
+	Type getType() const override { return Type::NOTE_ATTRIBUTE; }
 	DataView getAttributeType() const override { return attribute_type; }
 
 	
@@ -522,7 +648,7 @@ struct GeometryImpl : Geometry
 		: Geometry(_scene, _element)
 	{
 	}
-	Type getType() const override { return GEOMETRY; }
+	Type getType() const override { return Type::GEOMETRY; }
 	int getVertexCount() const override { return (int)vertices.size(); }
 	const Vec3* getVertices() const override { return &vertices[0]; }
 	int getUVCount() const override { return (int)uvs.size(); }
@@ -590,15 +716,15 @@ struct ClusterImpl : Cluster
 	int getWeightsCount() const override { return (int)weights.size(); }
 	Matrix getTransformMatrix() const { return transform_matrix; }
 	Matrix getTransformLinkMatrix() const { return transform_link_matrix; }
-	Object* getLink() const override { return resolveObjectLink(Object::LIMB_NODE); }
+	Object* getLink() const override { return resolveObjectLink(Object::Type::LIMB_NODE, nullptr, 0); }
 	
 
 	void postprocess()
 	{ 
-		Object* skin = resolveObjectLinkReverse(Object::SKIN);
+		Object* skin = resolveObjectLinkReverse(Object::Type::SKIN);
 		if (!skin) return;
 
-		GeometryImpl* geom = (GeometryImpl*)skin->resolveObjectLinkReverse(Object::GEOMETRY);
+		GeometryImpl* geom = (GeometryImpl*)skin->resolveObjectLinkReverse(Object::Type::GEOMETRY);
 		if (!geom) return;
 
 		std::vector<int> old_indices;
@@ -678,7 +804,7 @@ struct ClusterImpl : Cluster
 	std::vector<double> weights;
 	Matrix transform_matrix;
 	Matrix transform_link_matrix;
-	Type getType() const override { return CLUSTER; }
+	Type getType() const override { return Type::CLUSTER; }
 };
 
 
@@ -717,7 +843,7 @@ struct AnimationStackImpl : AnimationStack
 	}
 
 
-	Type getType() const override { return ANIMATION_STACK; }
+	Type getType() const override { return Type::ANIMATION_STACK; }
 };
 
 
@@ -728,7 +854,7 @@ struct AnimationLayerImpl : AnimationLayer
 	{
 	}
 
-	Type getType() const override { return ANIMATION_LAYER; }
+	Type getType() const override { return Type::ANIMATION_LAYER; }
 };
 
 
@@ -745,7 +871,7 @@ struct AnimationCurveImpl : AnimationCurve
 
 	std::vector<u64> times;
 	std::vector<float> values;
-	Type getType() const override { return ANIMATION_CURVE; }
+	Type getType() const override { return Type::ANIMATION_CURVE; }
 };
 
 
@@ -761,10 +887,10 @@ struct SkinImpl : Skin
 	{
 	}
 
-	int getClusterCount() const override { return resolveObjectLinkCount(CLUSTER); }
+	int getClusterCount() const override { return resolveObjectLinkCount(Type::CLUSTER); }
 	Cluster* getCluster(int idx) const override { return resolveObjectLink<ofbx::Cluster>(idx); }
 
-	Type getType() const override { return SKIN; }
+	Type getType() const override { return Type::SKIN; }
 };
 
 
@@ -784,7 +910,7 @@ struct TextureImpl : Texture
 	DataView getFileName() const override { return filename; }
 
 	DataView filename;
-	Type getType() const override { return TEXTURE; }
+	Type getType() const override { return Type::TEXTURE; }
 };
 
 
@@ -793,8 +919,10 @@ struct Root : Object
 	Root(const Scene& _scene, const IElement& _element)
 		: Object(_scene, _element)
 	{
+		strcpy_s(name, "RootNode");
+		is_node = true;
 	}
-	Type getType() const override { return ROOT; }
+	Type getType() const override { return Type::ROOT; }
 };
 
 
@@ -895,11 +1023,22 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 	}
 
 
-	Matrix getNodeLocalTransform(double time) const override
+	Vec3 getNodeLocalTransform(double time) const override
 	{
-		// TOOD
+		if (time < key_times[0]) time = key_times[0];
+		if (time > key_times.back()) time = key_times.back();
+
+		for (int i = 1, c = (int)key_times.size(); i < c; ++i)
+		{
+			if (key_times[i] >= time)
+			{
+				float t = float((time - key_times[i - 1]) / (key_times[i] - key_times[i - 1]));
+				return key_values[i - 1] * (1 - t) + key_values[i] * t;
+			}
+		}
+		
 		assert(false);
-		return {0};
+		return {0, 0, 0};
 	}
 
 
@@ -910,7 +1049,7 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 	};
 
 
-	Curve getConnection(const Object& obj, int idx)
+	Curve getConnection(const Object& obj, int idx) const
 	{
 		u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
 		for (auto& connection : scene.m_connections)
@@ -934,15 +1073,34 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 
 	void postprocess()
 	{
+		Curve curves[3];
 		curves[0] = getConnection(*this, 0);
 		curves[1] = getConnection(*this, 1);
 		curves[2] = getConnection(*this, 2);
 		assert(getConnection(*this, 3).curve == nullptr);
+
+		int count = curves[0].curve->getKeyCount();
+		const u64* times = curves[0].curve->getKeyTime();
+		const float* values_x = curves[0].curve->getKeyValue();
+		const float* values_y = curves[1].curve->getKeyValue();
+		const float* values_z = curves[2].curve->getKeyValue();
+		for (int i = 0; i < count; ++i)
+		{
+			key_times.push_back(fbxTimeToSeconds(times[i]));
+			key_values.push_back({values_x[i], values_y[i], values_z[i] });
+		}
 	}
 
 
-	Type getType() const override { return ANIMATION_CURVE_NODE; }
-	Curve curves[3];
+	Type getType() const override { return Type::ANIMATION_CURVE_NODE; }
+	std::vector<Vec3> key_values;
+	std::vector<double> key_times;
+	enum Mode
+	{
+		TRANSLATION,
+		ROTATION,
+		SCALE
+	} mode = TRANSLATION;
 };
 
 
@@ -1227,7 +1385,20 @@ AnimationCurve* parseAnimationCurve(const Scene& scene, const Element& element)
 {
 	AnimationCurveImpl* curve = new AnimationCurveImpl(scene, element);
 
+	const Element* times = findChild(element, "KeyTime");
+	const Element* values = findChild(element, "KeyValueFloat");
 
+	if (times)
+	{
+		curve->times.resize(times->first_property->getCount());
+		times->first_property->getValues(&curve->times[0], (int)curve->times.size() * sizeof(curve->times[0]));
+	}
+
+	if (values)
+	{
+		curve->values.resize(values->first_property->getCount());
+		values->first_property->getValues(&curve->values[0], (int)curve->values.size() * sizeof(curve->values[0]));
+	}
 
 	return curve;
 }
@@ -1340,14 +1511,14 @@ void parseTakes(Scene* scene)
 			const Element* local_time = findChild(*object, "LocalTime");
 			if (local_time)
 			{
-				take.local_time_from = double(local_time->first_property->value.toLong()) / 46186158000L;
-				take.local_time_to = double(local_time->first_property->next->value.toLong()) / 46186158000L;
+				take.local_time_from = fbxTimeToSeconds(local_time->first_property->value.toLong());
+				take.local_time_to = fbxTimeToSeconds(local_time->first_property->next->value.toLong());
 			}
 			const Element* reference_time = findChild(*object, "ReferenceTime");
 			if (reference_time)
 			{
-				take.reference_time_from = double(reference_time->first_property->value.toLong()) / 46186158000L;
-				take.reference_time_to = double(reference_time->first_property->next->value.toLong()) / 46186158000L;
+				take.reference_time_from = fbxTimeToSeconds(reference_time->first_property->value.toLong());
+				take.reference_time_to = fbxTimeToSeconds(reference_time->first_property->next->value.toLong());
 			}
 
 			scene->m_take_infos.push_back(take);
@@ -1366,6 +1537,7 @@ void parseObjects(const Element& root, Scene* scene)
 
 	scene->m_root = new Root(*scene, root);
 	scene->m_root->id = 0;
+	scene->m_object_map[0] = {&root, scene->m_root};
 
 	const Element* object = objs->child;
 	while (object)
@@ -1378,6 +1550,9 @@ void parseObjects(const Element& root, Scene* scene)
 	for (auto iter : scene->m_object_map)
 	{
 		Object* obj = nullptr;
+
+		if (iter.second.object == scene->m_root) continue;
+
 		if (iter.second.element->id == "Geometry")
 		{
 			Property* last_prop = getLastProperty(iter.second.element);
@@ -1451,9 +1626,9 @@ void parseObjects(const Element& root, Scene* scene)
 		if (!obj) continue;
 		switch (obj->getType())
 		{
-			case Object::CLUSTER: ((ClusterImpl*)iter.second.object)->postprocess(); break;
-			case Object::MESH: ((MeshImpl*)iter.second.object)->postprocess(); break;
-			case Object::ANIMATION_CURVE_NODE: ((AnimationCurveNodeImpl*)iter.second.object)->postprocess(); break;
+			case Object::Type::CLUSTER: ((ClusterImpl*)iter.second.object)->postprocess(); break;
+			case Object::Type::MESH: ((MeshImpl*)iter.second.object)->postprocess(); break;
+			case Object::Type::ANIMATION_CURVE_NODE: ((AnimationCurveNodeImpl*)iter.second.object)->postprocess(); break;
 		}
 	}
 }
@@ -1511,12 +1686,53 @@ Vec3 Object::getScalingPivot() const
 const AnimationCurveNode* Object::getCurveNode(const char* prop, const AnimationLayer& layer) const
 {
 	const AnimationCurveNode* curve_node = nullptr;
-	for (int i = 0; curve_node = (const AnimationCurveNode*)resolveObjectLink(Object::ANIMATION_CURVE_NODE, prop, i); ++i)
+	for (int i = 0; curve_node = (const AnimationCurveNode*)resolveObjectLink(Object::Type::ANIMATION_CURVE_NODE, prop, i); ++i)
 	{
-		Object* curve_node_layer = curve_node->resolveObjectLinkReverse(Object::ANIMATION_LAYER);
+		Object* curve_node_layer = curve_node->resolveObjectLinkReverse(Object::Type::ANIMATION_LAYER);
 		if (curve_node_layer == &layer) return curve_node;
 	}
 	return nullptr;
+}
+
+
+Matrix Object::evalLocal(const ofbx::Vec3& translation, const ofbx::Vec3& rotation) const
+{
+	Vec3 scaling = getLocalScaling();
+	Vec3 rotation_pivot = getRotationPivot();
+	Vec3 scaling_pivot = getScalingPivot();
+
+	Matrix s = makeIdentity();
+	s.m[0] = scaling.x;
+	s.m[5] = scaling.y;
+	s.m[10] = scaling.z;
+
+	Matrix t = makeIdentity();
+	setTranslation(translation, &t);
+
+	Matrix r = getRotationMatrix(rotation);
+	Matrix r_pre = getRotationMatrix(getPreRotation());
+	Matrix r_post_inv = getRotationMatrix(getPostRotation());
+
+	Matrix r_off = makeIdentity();
+	setTranslation(getRotationOffset(), &r_off);
+
+	Matrix r_p = makeIdentity();
+	setTranslation(rotation_pivot, &r_p);
+
+	Matrix r_p_inv = makeIdentity();
+	setTranslation(-rotation_pivot, &r_p_inv);
+
+	Matrix s_off = makeIdentity();
+	setTranslation(getScalingOffset(), &s_off);
+
+	Matrix s_p = makeIdentity();
+	setTranslation(scaling_pivot, &s_p);
+
+	Matrix s_p_inv = makeIdentity();
+	setTranslation(-scaling_pivot, &s_p_inv);
+
+	// http://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_10CDD63C_79C1_4F2D_BB28_AD2BE65A02ED_htm
+	return t * r_off * r_p * r_pre * r * r_post_inv * r_p_inv * s_off * s_p * s * s_p_inv;
 }
 
 
@@ -1553,7 +1769,7 @@ Matrix Object::evaluateGlobalTransform() const
 
 IElement* Object::resolveProperty(const char* name) const
 {
-	const Element* props = findChild((const ofbx::Element&)element, "Properties70");
+	const Element* props = findChild((const Element&)element, "Properties70");
 	if (!props) return nullptr;
 
 	Element* prop = props->child;
@@ -1672,7 +1888,7 @@ Object* Object::getParent() const
 	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
 	for (auto& connection : scene.m_connections)
 	{
-		if (connection.from == id && connection.to != 0)
+		if (connection.from == id)
 		{
 			Object* obj = scene.m_object_map.find(connection.to)->second.object;
 			if (obj && obj->is_node)

@@ -141,20 +141,20 @@ void showObjectGUI(ofbx::Object& object)
 	const char* label;
 	switch (object.getType())
 	{
-		case ofbx::Object::GEOMETRY: label = "geometry"; break;
-		case ofbx::Object::MESH: label = "mesh"; break;
-		case ofbx::Object::MATERIAL: label = "material"; break;
-		case ofbx::Object::ROOT: label = "root"; break;
-		case ofbx::Object::TEXTURE: label = "texture"; break;
-		case ofbx::Object::NULL_NODE: label = "texture"; break;
-		case ofbx::Object::LIMB_NODE: label = "limb node"; break;
-		case ofbx::Object::NOTE_ATTRIBUTE: label = "node attribute"; break;
-		case ofbx::Object::CLUSTER: label = "cluster"; break;
-		case ofbx::Object::SKIN: label = "skin"; break;
-		case ofbx::Object::ANIMATION_STACK: label = "animation stack"; break;
-		case ofbx::Object::ANIMATION_LAYER: label = "animation layer"; break;
-		case ofbx::Object::ANIMATION_CURVE: label = "animation curve"; break;
-		case ofbx::Object::ANIMATION_CURVE_NODE: label = "animation curve node"; break;
+		case ofbx::Object::Type::GEOMETRY: label = "geometry"; break;
+		case ofbx::Object::Type::MESH: label = "mesh"; break;
+		case ofbx::Object::Type::MATERIAL: label = "material"; break;
+		case ofbx::Object::Type::ROOT: label = "root"; break;
+		case ofbx::Object::Type::TEXTURE: label = "texture"; break;
+		case ofbx::Object::Type::NULL_NODE: label = "texture"; break;
+		case ofbx::Object::Type::LIMB_NODE: label = "limb node"; break;
+		case ofbx::Object::Type::NOTE_ATTRIBUTE: label = "node attribute"; break;
+		case ofbx::Object::Type::CLUSTER: label = "cluster"; break;
+		case ofbx::Object::Type::SKIN: label = "skin"; break;
+		case ofbx::Object::Type::ANIMATION_STACK: label = "animation stack"; break;
+		case ofbx::Object::Type::ANIMATION_LAYER: label = "animation layer"; break;
+		case ofbx::Object::Type::ANIMATION_CURVE: label = "animation curve"; break;
+		case ofbx::Object::Type::ANIMATION_CURVE_NODE: label = "animation curve node"; break;
 		default: assert(false); break;
 	}
 
@@ -189,10 +189,10 @@ void showObjectsGUI(const ofbx::IScene& scene)
 	ofbx::Object* root = scene.getRoot();
 	if (root) showObjectGUI(*root);
 
-	int count = scene.resolveObjectCount(ofbx::Object::ANIMATION_STACK);
+	int count = scene.resolveObjectCount(ofbx::Object::Type::ANIMATION_STACK);
 	for (int i = 0; i < count; ++i)
 	{
-		ofbx::Object* stack = scene.resolveObject(ofbx::Object::ANIMATION_STACK, i);
+		ofbx::Object* stack = scene.resolveObject(ofbx::Object::Type::ANIMATION_STACK, i);
 		showObjectGUI(*stack);
 	}
 
@@ -207,12 +207,12 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 	int obj_idx = 0;
 	int indices_offset = 0;
 	int normals_offset = 0;
-	int mesh_count = scene.resolveObjectCount(ofbx::Object::GEOMETRY);
+	int mesh_count = scene.resolveObjectCount(ofbx::Object::Type::GEOMETRY);
 	for (int i = 0; i < mesh_count; ++i)
 	{
 		fprintf(fp, "o obj%d\ng grp%d\n", i, obj_idx);
 
-		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.resolveObject(ofbx::Object::GEOMETRY, i);
+		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.resolveObject(ofbx::Object::Type::GEOMETRY, i);
 		int vertex_count = mesh.getVertexCount();
 		const ofbx::Vec3* vertices = mesh.getVertices();
 		for (int i = 0; i < vertex_count; ++i)

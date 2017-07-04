@@ -114,7 +114,7 @@ struct IScene;
 
 struct Object
 {
-	enum Type
+	enum class Type
 	{
 		ROOT,
 		GEOMETRY,
@@ -156,6 +156,7 @@ struct Object
 	Vec3 getLocalRotation() const;
 	Vec3 getLocalScaling() const;
 	Matrix evaluateGlobalTransform() const;
+	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
 	const AnimationCurveNode* getCurveNode(const char* prop, const AnimationLayer& layer) const;
 
 	template <typename T> T* resolveObjectLink(int idx) const
@@ -165,17 +166,17 @@ struct Object
 
 	u64 id;
 	char name[128];
+	const IElement& element;
 
 protected:
 	const Scene& scene;
-	const IElement& element;
 	bool is_node;
 };
 
 
 struct Material : Object
 {
-	static const Type s_type = MATERIAL;
+	static const Type s_type = Type::MATERIAL;
 
 	Material(const Scene& _scene, const IElement& _element);
 };
@@ -183,7 +184,7 @@ struct Material : Object
 
 struct Cluster : Object
 {
-	static const Type s_type = CLUSTER;
+	static const Type s_type = Type::CLUSTER;
 
 	Cluster(const Scene& _scene, const IElement& _element);
 
@@ -199,7 +200,7 @@ struct Cluster : Object
 
 struct Skin : Object
 {
-	static const Type s_type = SKIN;
+	static const Type s_type = Type::SKIN;
 
 	Skin(const Scene& _scene, const IElement& _element);
 
@@ -210,7 +211,7 @@ struct Skin : Object
 
 struct NodeAttribute : Object
 {
-	static const Type s_type = NOTE_ATTRIBUTE;
+	static const Type s_type = Type::NOTE_ATTRIBUTE;
 
 	NodeAttribute(const Scene& _scene, const IElement& _element);
 
@@ -220,7 +221,7 @@ struct NodeAttribute : Object
 
 struct Texture : Object
 {
-	static const Type s_type = TEXTURE;
+	static const Type s_type = Type::TEXTURE;
 
 	Texture(const Scene& _scene, const IElement& _element);
 	virtual DataView getFileName() const = 0;
@@ -229,7 +230,7 @@ struct Texture : Object
 
 struct Geometry : Object
 {
-	static const Type s_type = GEOMETRY;
+	static const Type s_type = Type::GEOMETRY;
 
 	Geometry(const Scene& _scene, const IElement& _element);
 
@@ -245,21 +246,19 @@ struct Geometry : Object
 
 struct Mesh : Object
 {
-	static const Type s_type = MESH;
+	static const Type s_type = Type::MESH;
 
 	Mesh(const Scene& _scene, const IElement& _element);
 
 	virtual const Geometry* getGeometry() const = 0;
-	virtual Vec3 getGeometricTranslation() const = 0;
-	virtual Vec3 getGeometricRotation() const = 0;
-	virtual Vec3 getGeometricScaling() const = 0;
+	virtual Matrix getGeometricMatrix() const = 0;
 	virtual Skin* getSkin() const = 0;
 };
 
 
 struct AnimationStack : Object
 {
-	static const Type s_type = ANIMATION_STACK;
+	static const Type s_type = Type::ANIMATION_STACK;
 
 	AnimationStack(const Scene& _scene, const IElement& _element);
 	virtual const AnimationLayer* getLayer(int index) const = 0;
@@ -268,7 +267,7 @@ struct AnimationStack : Object
 
 struct AnimationLayer : Object
 {
-	static const Type s_type = ANIMATION_LAYER;
+	static const Type s_type = Type::ANIMATION_LAYER;
 
 	AnimationLayer(const Scene& _scene, const IElement& _element);
 };
@@ -276,7 +275,7 @@ struct AnimationLayer : Object
 
 struct AnimationCurve : Object
 {
-	static const Type s_type = ANIMATION_CURVE;
+	static const Type s_type = Type::ANIMATION_CURVE;
 
 	AnimationCurve(const Scene& _scene, const IElement& _element);
 
@@ -288,11 +287,11 @@ struct AnimationCurve : Object
 
 struct AnimationCurveNode : Object
 {
-	static const Type s_type = ANIMATION_CURVE_NODE;
+	static const Type s_type = Type::ANIMATION_CURVE_NODE;
 
 	AnimationCurveNode(const Scene& _scene, const IElement& _element);
 
-	virtual Matrix getNodeLocalTransform(double time) const = 0;
+	virtual Vec3 getNodeLocalTransform(double time) const = 0;
 };
 
 
