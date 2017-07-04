@@ -1028,12 +1028,13 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 		if (time < key_times[0]) time = key_times[0];
 		if (time > key_times.back()) time = key_times.back();
 
+		const Vec3* values = (const Vec3*)&key_values[0];
 		for (int i = 1, c = (int)key_times.size(); i < c; ++i)
 		{
 			if (key_times[i] >= time)
 			{
 				float t = float((time - key_times[i - 1]) / (key_times[i] - key_times[i - 1]));
-				return key_values[i - 1] * (1 - t) + key_values[i] * t;
+				return values[i - 1] * (1 - t) + values[i] * t;
 			}
 		}
 		
@@ -1081,19 +1082,21 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 
 		int count = curves[0].curve->getKeyCount();
 		const u64* times = curves[0].curve->getKeyTime();
-		const float* values_x = curves[0].curve->getKeyValue();
-		const float* values_y = curves[1].curve->getKeyValue();
-		const float* values_z = curves[2].curve->getKeyValue();
+		const float* values_x = curves[0].curve ? curves[0].curve->getKeyValue() : nullptr;
+		const float* values_y = curves[1].curve ? curves[1].curve->getKeyValue() : nullptr;
+		const float* values_z = curves[2].curve ? curves[2].curve->getKeyValue() : nullptr;
 		for (int i = 0; i < count; ++i)
 		{
 			key_times.push_back(fbxTimeToSeconds(times[i]));
-			key_values.push_back({values_x[i], values_y[i], values_z[i] });
+			key_values.push_back(values_x[i]);
+			if (values_y) key_values.push_back(values_y[i]);
+			if (values_z) key_values.push_back(values_z[i]);
 		}
 	}
 
 
 	Type getType() const override { return Type::ANIMATION_CURVE_NODE; }
-	std::vector<Vec3> key_values;
+	std::vector<float> key_values;
 	std::vector<double> key_times;
 	enum Mode
 	{
