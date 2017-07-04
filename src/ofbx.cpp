@@ -635,7 +635,8 @@ struct GeometryImpl : Geometry
 	enum VertexDataMapping
 	{
 		BY_POLYGON_VERTEX,
-		BY_POLYGON
+		BY_POLYGON,
+		BY_VERTEX
 	};
 
 	std::vector<Vec3> vertices;
@@ -1313,6 +1314,11 @@ static void parseVertexData(const Element& element, const char* name, const char
 			{
 				*mapping = GeometryImpl::BY_POLYGON;
 			}
+			else if (mapping_element->first_property->value == "ByVertice" ||
+					 mapping_element->first_property->value == "ByVertex")
+			{
+				*mapping = GeometryImpl::BY_VERTEX;
+			}
 			else
 			{
 				assert(false);
@@ -1343,24 +1349,44 @@ template <typename T>
 void splat(std::vector<T>* out,
 	GeometryImpl::VertexDataMapping mapping,
 	const std::vector<T>& data,
-	const std::vector<int>& indices)
+	const std::vector<int>& indices,
+	const std::vector<int>& to_old_vertices)
 {
 	assert(out);
 	assert(!data.empty());
-	assert(mapping == GeometryImpl::BY_POLYGON_VERTEX);
-
-	if (indices.empty())
+	
+	if (mapping == GeometryImpl::BY_POLYGON_VERTEX)
 	{
-		out->resize(data.size());
-		memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size());
+		if (indices.empty())
+		{
+			out->resize(data.size());
+			memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size());
+		}
+		else
+		{
+			out->resize(indices.size());
+			for (int i = 0, c = (int)indices.size(); i < c; ++i)
+			{
+				(*out)[i] = data[indices[i]];
+			}
+		}
+	}
+	else if(mapping == GeometryImpl::BY_VERTEX)
+	{
+		//  v0  v1 ...
+		// uv0 uv1 ...
+		assert(indices.empty());
+		
+		out->resize(to_old_vertices.size());
+
+		for (int i = 0, c = (int)to_old_vertices.size(); i < c; ++i)
+		{
+			(*out)[i] = data[to_old_vertices[i]];
+		}
 	}
 	else
 	{
-		out->resize(indices.size());
-		for (int i = 0, c = (int)indices.size(); i < c; ++i)
-		{
-			(*out)[i] = data[indices[i]];
-		}
+		assert(false);
 	}
 
 }
@@ -1436,7 +1462,7 @@ Geometry* parseGeometry(const Scene& scene, const Element& element)
 		GeometryImpl::VertexDataMapping mapping;
 		parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping);
 		geom->uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
-		splat(&geom->uvs, mapping, tmp, tmp_indices);
+		splat(&geom->uvs, mapping, tmp, tmp_indices, geom->to_old_vertices);
 		remap(&geom->uvs, to_old_indices);
 	}
 
@@ -1447,7 +1473,7 @@ Geometry* parseGeometry(const Scene& scene, const Element& element)
 		std::vector<int> tmp_indices;
 		GeometryImpl::VertexDataMapping mapping;
 		parseVertexData(*layer_normal_element, "Normals", "NormalsIndex", &tmp, &tmp_indices, &mapping);
-		splat(&geom->normals, mapping, tmp, tmp_indices);
+		splat(&geom->normals, mapping, tmp, tmp_indices, geom->to_old_vertices);
 		remap(&geom->normals, to_old_indices);
 	}
 
