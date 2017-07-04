@@ -1000,7 +1000,6 @@ struct Scene : IScene
 		{
 			delete iter.second.object;
 		}
-		delete m_root;
 		delete m_root_element;
 	}
 
