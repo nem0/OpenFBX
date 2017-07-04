@@ -240,6 +240,7 @@ struct Geometry : Object
 	virtual const Vec3* getNormals() const = 0;
 	virtual const Vec2* getUVs() const = 0;
 	virtual const Vec4* getColors() const = 0;
+	virtual const Vec3* getTangents() const = 0;
 };
 
 

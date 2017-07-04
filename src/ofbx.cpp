@@ -643,6 +643,7 @@ struct GeometryImpl : Geometry
 	std::vector<Vec3> normals;
 	std::vector<Vec2> uvs;
 	std::vector<Vec4> colors;
+	std::vector<Vec3> tangents;
 
 	std::vector<int> to_old_vertices;
 
@@ -656,6 +657,7 @@ struct GeometryImpl : Geometry
 	const Vec3* getNormals() const override { return normals.empty() ? nullptr : &normals[0]; }
 	const Vec2* getUVs() const override { return uvs.empty() ? nullptr : &uvs[0]; }
 	const Vec4* getColors() const override { return colors.empty() ? nullptr : &colors[0]; }
+	const Vec3* getTangents() const override { return tangents.empty() ? nullptr : &tangents[0]; }
 
 
 	void triangulate(std::vector<int>* indices, std::vector<int>* to_old)
@@ -1469,13 +1471,31 @@ Geometry* parseGeometry(const Scene& scene, const Element& element)
 		remap(&geom->uvs, to_old_indices);
 	}
 
-	const Element* layer_normal_color = findChild(element, "LayerElementColor");
-	if (layer_normal_color)
+	const Element* layer_tangent_element = findChild(element, "LayerElementTangents");
+	if (layer_tangent_element)
+	{
+		std::vector<Vec3> tmp;
+		std::vector<int> tmp_indices;
+		GeometryImpl::VertexDataMapping mapping;
+		if (findChild(*layer_tangent_element, "Tangents"))
+		{
+			parseVertexData(*layer_tangent_element, "Tangents", "TangentsIndex", &tmp, &tmp_indices, &mapping);
+		}
+		else
+		{
+			parseVertexData(*layer_tangent_element, "Tangent", "TangentIndex", &tmp, &tmp_indices, &mapping);
+		}
+		splat(&geom->tangents, mapping, tmp, tmp_indices, geom->to_old_vertices);
+		remap(&geom->tangents, to_old_indices);
+	}
+
+	const Element* layer_color_element = findChild(element, "LayerElementColor");
+	if (layer_color_element)
 	{
 		std::vector<Vec4> tmp;
 		std::vector<int> tmp_indices;
 		GeometryImpl::VertexDataMapping mapping;
-		parseVertexData(*layer_normal_color, "Colors", "ColorIndex", &tmp, &tmp_indices, &mapping);
+		parseVertexData(*layer_color_element, "Colors", "ColorIndex", &tmp, &tmp_indices, &mapping);
 		splat(&geom->colors, mapping, tmp, tmp_indices, geom->to_old_vertices);
 		remap(&geom->colors, to_old_indices);
 	}
