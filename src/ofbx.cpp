@@ -1096,7 +1096,7 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 
 
 	Type getType() const override { return Type::ANIMATION_CURVE_NODE; }
-	std::vector<float> key_values;
+	std::vector<double> key_values;
 	std::vector<double> key_times;
 	enum Mode
 	{
