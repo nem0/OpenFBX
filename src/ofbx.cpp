@@ -642,6 +642,7 @@ struct GeometryImpl : Geometry
 	std::vector<Vec3> vertices;
 	std::vector<Vec3> normals;
 	std::vector<Vec2> uvs;
+	std::vector<Vec4> colors;
 
 	std::vector<int> to_old_vertices;
 
@@ -652,10 +653,9 @@ struct GeometryImpl : Geometry
 	Type getType() const override { return Type::GEOMETRY; }
 	int getVertexCount() const override { return (int)vertices.size(); }
 	const Vec3* getVertices() const override { return &vertices[0]; }
-	int getUVCount() const override { return (int)uvs.size(); }
-	int getNormalCount() const override { return (int)normals.size(); }
-	const Vec3* getNormals() const override { return &normals[0]; }
-	const Vec2* getUVs() const override { return &uvs[0]; }
+	const Vec3* getNormals() const override { return normals.empty() ? nullptr : &normals[0]; }
+	const Vec2* getUVs() const override { return uvs.empty() ? nullptr : &uvs[0]; }
+	const Vec4* getColors() const override { return colors.empty() ? nullptr : &colors[0]; }
 
 
 	void triangulate(std::vector<int>* indices, std::vector<int>* to_old)
@@ -1467,6 +1467,17 @@ Geometry* parseGeometry(const Scene& scene, const Element& element)
 		geom->uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
 		splat(&geom->uvs, mapping, tmp, tmp_indices, geom->to_old_vertices);
 		remap(&geom->uvs, to_old_indices);
+	}
+
+	const Element* layer_normal_color = findChild(element, "LayerElementColor");
+	if (layer_normal_color)
+	{
+		std::vector<Vec4> tmp;
+		std::vector<int> tmp_indices;
+		GeometryImpl::VertexDataMapping mapping;
+		parseVertexData(*layer_normal_color, "Colors", "ColorIndex", &tmp, &tmp_indices, &mapping);
+		splat(&geom->colors, mapping, tmp, tmp_indices, geom->to_old_vertices);
+		remap(&geom->colors, to_old_indices);
 	}
 
 	const Element* layer_normal_element = findChild(element, "LayerElementNormal");

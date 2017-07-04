@@ -237,10 +237,9 @@ struct Geometry : Object
 	virtual const Vec3* getVertices() const = 0;
 	virtual int getVertexCount() const = 0;
 
-	virtual int getUVCount() const = 0;
-	virtual int getNormalCount() const = 0;
 	virtual const Vec3* getNormals() const = 0;
 	virtual const Vec2* getUVs() const = 0;
+	virtual const Vec4* getColors() const = 0;
 };
 
 
