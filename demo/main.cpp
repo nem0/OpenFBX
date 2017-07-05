@@ -221,11 +221,11 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			fprintf(fp, "v %f %f %f\n", v.x, v.y, v.z);
 		}
 
-		bool has_normals = mesh.getNormalCount() > 0;
+		bool has_normals = mesh.getNormals() != nullptr;
 		if (has_normals)
 		{
 			const ofbx::Vec3* normals = mesh.getNormals();
-			int count = mesh.getNormalCount();
+			int count = mesh.getVertexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -234,11 +234,11 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			}
 		}
 
-		bool has_uvs = mesh.getUVCount() > 0;
+		bool has_uvs = mesh.getUVs() != nullptr;
 		if (has_uvs)
 		{
 			const ofbx::Vec2* uvs = mesh.getUVs();
-			int count = mesh.getNormalCount();
+			int count = mesh.getVertexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
