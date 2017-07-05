@@ -22,3 +22,4 @@ Demo is windows only. Library is multiplatform.
 2. use
 
 See [demo](https://github.com/nem0/OpenFBX/blob/master/demo/main.cpp#L203) as an example how to use the library.
+See [Lumix Engine](https://github.com/nem0/LumixEngine/blob/master/src/renderer/editor/import_asset_dialog.cpp#L504) as more advanced use case.
