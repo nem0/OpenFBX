@@ -46,8 +46,8 @@ struct Quat
 
 struct DataView
 {
-	const u8* begin;
-	const u8* end;
+	const u8* begin = nullptr;
+	const u8* end = nullptr;
 
 	bool operator!=(const char* rhs) const { return !(*this == rhs); }
 	bool operator==(const char* rhs) const;
@@ -225,6 +225,7 @@ struct Texture : Object
 
 	Texture(const Scene& _scene, const IElement& _element);
 	virtual DataView getFileName() const = 0;
+	virtual DataView getRelativeFileName() const = 0;
 };
 
 

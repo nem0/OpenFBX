@@ -580,6 +580,7 @@ struct MaterialImpl : Material
 		: Material(_scene, _element)
 	{
 	}
+
 	Type getType() const override { return Type::MATERIAL; }
 };
 
@@ -909,10 +910,11 @@ struct TextureImpl : Texture
 	{
 	}
 
-
+	DataView getRelativeFileName() const override { return relative_filename; }
 	DataView getFileName() const override { return filename; }
 
 	DataView filename;
+	DataView relative_filename;
 	Type getType() const override { return Type::TEXTURE; }
 };
 
@@ -1125,6 +1127,11 @@ Texture* parseTexture(const Scene& scene, const Element& element)
 	if (texture_filename && texture_filename->first_property)
 	{
 		texture->filename = texture_filename->first_property->value;
+	}
+	const Element* texture_relative_filename = findChild(element, "RelativeFilename");
+	if (texture_relative_filename && texture_relative_filename->first_property)
+	{
+		texture->relative_filename = texture_relative_filename->first_property->value;
 	}
 	return texture;
 }
