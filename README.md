@@ -7,6 +7,14 @@ Lightweight open source FBX importer. Used in [Lumix Engine](https://github.com/
 
 Feel free to request new features. I will eventually try to add all missing fbx fatures.
 
+## Use the library in your own project
+
+1. add files from src to your project
+2. use
+
+See [demo](https://github.com/nem0/OpenFBX/blob/master/demo/main.cpp#L203) as an example how to use the library.
+See [Lumix Engine](https://github.com/nem0/LumixEngine/blob/master/src/renderer/editor/import_asset_dialog.cpp#L504) as more advanced use case.
+
 ## Compile demo project
 
 1. download source code
@@ -16,10 +24,4 @@ Feel free to request new features. I will eventually try to add all missing fbx 
 
 Demo is windows only. Library is multiplatform.
 
-## Use the library in your own project
-
-1. add files from src to your project
-2. use
-
-See [demo](https://github.com/nem0/OpenFBX/blob/master/demo/main.cpp#L203) as an example how to use the library.
-See [Lumix Engine](https://github.com/nem0/LumixEngine/blob/master/src/renderer/editor/import_asset_dialog.cpp#L504) as more advanced use case.
+![ofbx](https://user-images.githubusercontent.com/153526/27876079-eea3c872-61b5-11e7-9fce-3a7c558fb0d2.png)
