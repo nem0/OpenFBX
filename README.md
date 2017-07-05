@@ -1,3 +1,6 @@
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nem0/LumixEngine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
+
 # OpenFBX
 
 Lightweight open source FBX importer. Used in [Lumix Engine](https://github.com/nem0/lumixengine). It's not a full-featured importer, but it suits all my needs. It can load geometry (with uvs, normals, tangents, colors), skeletons, animations, materials and textures. 
