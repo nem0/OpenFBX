@@ -17,3 +17,5 @@ Demo is windows only. Library is multiplatform.
 
 1. add files from src to your project
 2. use
+
+See [demo](https://github.com/nem0/OpenFBX/blob/master/demo/main.cpp#L203) as an example how to use the library.
