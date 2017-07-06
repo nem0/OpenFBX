@@ -19,8 +19,8 @@ GLuint g_font_texture;
 typedef char Path[MAX_PATH];
 typedef unsigned int u32;
 ofbx::IScene* g_scene = nullptr;
-ofbx::IElement* g_selected_element = nullptr;
-ofbx::Object* g_selected_object = nullptr;
+const ofbx::IElement* g_selected_element = nullptr;
+const ofbx::Object* g_selected_object = nullptr;
 
 
 template <int N>
@@ -136,7 +136,7 @@ void showGUI(ofbx::IElementProperty& prop)
 }
 
 
-void showObjectGUI(ofbx::Object& object)
+void showObjectGUI(const ofbx::Object& object)
 {
 	const char* label;
 	switch (object.getType())
@@ -189,10 +189,10 @@ void showObjectsGUI(const ofbx::IScene& scene)
 	ofbx::Object* root = scene.getRoot();
 	if (root) showObjectGUI(*root);
 
-	int count = scene.resolveObjectCount(ofbx::Object::Type::ANIMATION_STACK);
+	int count = scene.getAnimationStackCount();
 	for (int i = 0; i < count; ++i)
 	{
-		ofbx::Object* stack = scene.resolveObject(ofbx::Object::Type::ANIMATION_STACK, i);
+		const ofbx::Object* stack = scene.getAnimationStack(i);
 		showObjectGUI(*stack);
 	}
 
@@ -207,25 +207,26 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 	int obj_idx = 0;
 	int indices_offset = 0;
 	int normals_offset = 0;
-	int mesh_count = scene.resolveObjectCount(ofbx::Object::Type::GEOMETRY);
+	int mesh_count = scene.getMeshCount();
 	for (int i = 0; i < mesh_count; ++i)
 	{
 		fprintf(fp, "o obj%d\ng grp%d\n", i, obj_idx);
 
-		const ofbx::Geometry& mesh = (const ofbx::Geometry&)*scene.resolveObject(ofbx::Object::Type::GEOMETRY, i);
-		int vertex_count = mesh.getVertexCount();
-		const ofbx::Vec3* vertices = mesh.getVertices();
+		const ofbx::Mesh& mesh = *scene.getMesh(i);
+		const ofbx::Geometry& geom = *mesh.getGeometry();
+		int vertex_count = geom.getVertexCount();
+		const ofbx::Vec3* vertices = geom.getVertices();
 		for (int i = 0; i < vertex_count; ++i)
 		{
 			ofbx::Vec3 v = vertices[i];
 			fprintf(fp, "v %f %f %f\n", v.x, v.y, v.z);
 		}
 
-		bool has_normals = mesh.getNormals() != nullptr;
+		bool has_normals = geom.getNormals() != nullptr;
 		if (has_normals)
 		{
-			const ofbx::Vec3* normals = mesh.getNormals();
-			int count = mesh.getVertexCount();
+			const ofbx::Vec3* normals = geom.getNormals();
+			int count = geom.getVertexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -234,11 +235,11 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			}
 		}
 
-		bool has_uvs = mesh.getUVs() != nullptr;
+		bool has_uvs = geom.getUVs() != nullptr;
 		if (has_uvs)
 		{
-			const ofbx::Vec2* uvs = mesh.getUVs();
-			int count = mesh.getVertexCount();
+			const ofbx::Vec2* uvs = geom.getUVs();
+			int count = geom.getVertexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -248,7 +249,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		}
 
 		bool new_face = true;
-		int count = mesh.getVertexCount();
+		int count = geom.getVertexCount();
 		for (int i = 0; i < count; ++i)
 		{
 			if (new_face)
