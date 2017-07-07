@@ -11,6 +11,67 @@ namespace ofbx
 {
 
 
+struct Error
+{
+	Error() {}
+	Error(const char* msg) { s_message = msg; }
+
+	static const char* s_message;
+};
+
+
+const char* Error::s_message = "";
+
+
+template <typename T>
+struct OptionalError
+{
+	OptionalError(Error error)
+		: is_error(true)
+	{}
+
+
+	OptionalError(T _value)
+		: value(_value)
+		, is_error(false)
+	{
+	}
+
+
+	T getValue() const
+	{
+		#ifdef _DEBUG
+			assert(error_checked);
+		#endif
+		return value;
+	}
+
+
+	bool isError()
+	{
+		#ifdef _DEBUG
+			error_checked = true;
+		#endif
+		return is_error;
+	}
+
+	
+	#ifdef _DEBUG
+		~OptionalError()
+		{
+			assert(error_checked);
+		}
+	#endif
+
+private:
+	T value;
+	bool is_error;
+	#ifdef _DEBUG
+		bool error_checked = false;
+	#endif
+};
+
+
 #pragma pack(1)
 struct Header
 {
@@ -297,29 +358,25 @@ static void decompress(const u8* in, size_t in_size, u8* out, size_t out_size)
 }
 
 
-static u32 readWord(Cursor* cursor)
+template <typename T>
+static OptionalError<T> read(Cursor* cursor)
 {
-	u32 word = *(const u32*)cursor->current;
-	cursor->current += 4;
-	return word;
+	if (cursor->current + sizeof(T) > cursor->end) return Error("Reading past the end");
+	T value = *(const T*)cursor->current;
+	cursor->current += sizeof(T);
+	return value;
 }
 
 
-static u8 readByte(Cursor* cursor)
-{
-	u8 byte = *(const u8*)cursor->current;
-	cursor->current += 1;
-	return byte;
-}
-
-
-static DataView readShortString(Cursor* cursor)
+static OptionalError<DataView> readShortString(Cursor* cursor)
 {
 	DataView value;
-	const u8 length = readByte(cursor);
+	OptionalError<u8> length = read<u8>(cursor);
+	if (length.isError()) return Error();
 
+	if (cursor->current + length.getValue() > cursor->end) return Error("Reading past the end");
 	value.begin = cursor->current;
-	cursor->current += length;
+	cursor->current += length.getValue();
 
 	value.end = cursor->current;
 
@@ -327,13 +384,15 @@ static DataView readShortString(Cursor* cursor)
 }
 
 
-static DataView readLongString(Cursor* cursor)
+static OptionalError<DataView> readLongString(Cursor* cursor)
 {
 	DataView value;
-	const u32 length = readWord(cursor);
+	OptionalError<u32> length = read<u32>(cursor);
+	if (length.isError()) return Error();
 
+	if (cursor->current + length.getValue() > cursor->end) return Error("Reading past the end");
 	value.begin = cursor->current;
-	cursor->current += length;
+	cursor->current += length.getValue();
 
 	value.end = cursor->current;
 
@@ -341,7 +400,7 @@ static DataView readLongString(Cursor* cursor)
 }
 
 
-static Property* readProperty(Cursor* cursor)
+static OptionalError<Property*> readProperty(Cursor* cursor)
 {
 	Property* prop = new Property;
 	prop->next = nullptr;
@@ -351,7 +410,17 @@ static Property* readProperty(Cursor* cursor)
 
 	switch (prop->type)
 	{
-		case 'S': prop->value = readLongString(cursor); break;
+		case 'S': 
+		{
+			OptionalError<DataView> val = readLongString(cursor);
+			if (val.isError())
+			{
+				delete prop;
+				return Error();
+			}
+			prop->value = val.getValue();
+			break;
+		}
 		case 'Y': cursor->current += 2; break;
 		case 'C': cursor->current += 1; break;
 		case 'I': cursor->current += 4; break;
@@ -360,8 +429,13 @@ static Property* readProperty(Cursor* cursor)
 		case 'L': cursor->current += 8; break;
 		case 'R':
 		{
-			u32 len = readWord(cursor);
-			cursor->current += len;
+			OptionalError<u32> len = read<u32>(cursor);
+			if (len.isError())
+			{
+				delete prop;
+				return Error();
+			}
+			cursor->current += len.getValue();
 			break;
 		}
 		case 'b':
@@ -370,63 +444,92 @@ static Property* readProperty(Cursor* cursor)
 		case 'l':
 		case 'i':
 		{
-			u32 length = readWord(cursor);
-			u32 encoding = readWord(cursor);
-			u32 comp_len = readWord(cursor);
-			cursor->current += comp_len;
+			OptionalError<u32> length = read<u32>(cursor);
+			OptionalError<u32> encoding = read<u32>(cursor);
+			OptionalError<u32> comp_len = read<u32>(cursor);
+			if (length.isError() | encoding.isError() | comp_len.isError())
+			{
+				delete prop;
+				return Error();
+			}
+			cursor->current += comp_len.getValue();
 			break;
 		}
-		default: assert(0); break;
+		default: 
+			delete prop;
+			return Error("Unknown property type");
 	}
 	prop->value.end = cursor->current;
 	return prop;
 }
 
 
-static Element* readElement(Cursor* cursor)
+static OptionalError<Element*> readElement(Cursor* cursor)
 {
-	u32 end_offset = readWord(cursor);
-	if (end_offset == 0) return nullptr;
-	u32 prop_count = readWord(cursor);
-	u32 prop_length = readWord(cursor);
+	OptionalError<u32> end_offset = read<u32>(cursor);
+	if (end_offset.isError()) return Error();
+	if (end_offset.getValue() == 0) return nullptr;
+
+	OptionalError<u32> prop_count = read<u32>(cursor);
+	OptionalError<u32> prop_length = read<u32>(cursor);
+	if (prop_count.isError() || prop_length.isError()) return Error();
 
 	const char* sbeg = 0;
 	const char* send = 0;
-	DataView id = readShortString(cursor);
+	OptionalError<DataView> id = readShortString(cursor);
+	if (id.isError()) return Error();
+
 	Element* element = new Element;
 	element->first_property = nullptr;
-	element->id = id;
+	element->id = id.getValue();
 
 	element->child = nullptr;
 	element->sibling = nullptr;
 
 	Property** prop_link = &element->first_property;
-	for (u32 i = 0; i < prop_count; ++i)
+	for (u32 i = 0; i < prop_count.getValue(); ++i)
 	{
-		*prop_link = readProperty(cursor);
+		OptionalError<Property*> prop = readProperty(cursor);
+		if (prop.isError())
+		{
+			delete element;
+			return Error();
+		}
+		
+		*prop_link = prop.getValue();
 		prop_link = &(*prop_link)->next;
 	}
 
-	if (cursor->current - cursor->begin >= end_offset) return element;
+	if (cursor->current - cursor->begin >= end_offset.getValue()) return element;
 
-	enum
-	{
-		_BLOCK_SENTINEL_LENGTH = 13
-	};
+	constexpr int BLOCK_SENTINEL_LENGTH = 13;
 
 	Element** link = &element->child;
-	while (cursor->current - cursor->begin < (end_offset - _BLOCK_SENTINEL_LENGTH))
+	while (cursor->current - cursor->begin < (end_offset.getValue() - BLOCK_SENTINEL_LENGTH))
 	{
-		*link = readElement(cursor);
+		OptionalError<Element*> child = readElement(cursor);
+		if (child.isError())
+		{
+			delete element;
+			return Error();
+		}
+
+		*link = child.getValue();
 		link = &(*link)->sibling;
 	}
 
-	cursor->current += _BLOCK_SENTINEL_LENGTH;
+	if (cursor->current + BLOCK_SENTINEL_LENGTH > cursor->end)
+	{
+		delete element;
+		return Error("Reading past the end");
+	}
+	
+	cursor->current += BLOCK_SENTINEL_LENGTH;
 	return element;
 }
 
 
-static Element* tokenize(const u8* data, size_t size)
+static OptionalError<Element*> tokenize(const u8* data, size_t size)
 {
 	Cursor cursor;
 	cursor.begin = data;
@@ -446,7 +549,13 @@ static Element* tokenize(const u8* data, size_t size)
 	Element** element = &root->child;
 	for (;;)
 	{
-		*element = readElement(&cursor);
+		OptionalError<Element*> child = readElement(&cursor);
+		if (child.isError())
+		{
+			delete root;
+			return Error();
+		}
+		*element = child.getValue();
 		if (!*element) return root;
 		element = &(*element)->sibling;
 	}
@@ -1029,8 +1138,8 @@ struct Scene : IScene
 	}
 
 
-	Element* m_root_element;
-	Root* m_root;
+	Element* m_root_element = nullptr;
+	Root* m_root = nullptr;
 	std::unordered_map<u64, ObjectPair> m_object_map;
 	std::vector<Mesh*> m_meshes;
 	std::vector<AnimationStack*> m_animation_stacks;
@@ -2003,18 +2112,25 @@ IScene* load(const u8* data, int size)
 	Scene* scene = new Scene;
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
-	Element* root = tokenize(&scene->m_data[0], size);
-	if (!root)
+	OptionalError<Element*> root = tokenize(&scene->m_data[0], size);
+	if (root.isError())
 	{
 		delete scene;
 		return nullptr;
 	}
-	scene->m_root_element = root;
-	parseTemplates(*root);
-	parseConnections(*root, scene);
+	assert(root.getValue());
+	scene->m_root_element = root.getValue();
+	parseTemplates(*root.getValue());
+	parseConnections(*root.getValue(), scene);
 	parseTakes(scene);
-	parseObjects(*root, scene);
+	parseObjects(*root.getValue(), scene);
 	return scene;
+}
+
+
+const char* getError()
+{
+	return Error::s_message;
 }
 
 
