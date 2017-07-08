@@ -31,3 +31,5 @@ projects/tmp/*
 # Executables
 *.out
 *.app
+
+runtime/imgui.ini
