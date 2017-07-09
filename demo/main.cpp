@@ -186,7 +186,7 @@ void showObjectsGUI(const ofbx::IScene& scene)
 		ImGui::End();
 		return;
 	}
-	ofbx::Object* root = scene.getRoot();
+	const ofbx::Object* root = scene.getRoot();
 	if (root) showObjectGUI(*root);
 
 	int count = scene.getAnimationStackCount();
@@ -302,7 +302,7 @@ void onGUI()
 	ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
 	if (ImGui::Begin("Elements"))
 	{
-		ofbx::IElement* root = g_scene->getRootElement();
+		const ofbx::IElement* root = g_scene->getRootElement();
 		if (root && root->getFirstChild()) showGUI(*root->getFirstChild());
 	}
 	ImGui::End();
