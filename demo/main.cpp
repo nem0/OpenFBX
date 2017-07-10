@@ -148,7 +148,7 @@ void showObjectGUI(const ofbx::Object& object)
 		case ofbx::Object::Type::TEXTURE: label = "texture"; break;
 		case ofbx::Object::Type::NULL_NODE: label = "null"; break;
 		case ofbx::Object::Type::LIMB_NODE: label = "limb node"; break;
-		case ofbx::Object::Type::NOTE_ATTRIBUTE: label = "node attribute"; break;
+		case ofbx::Object::Type::NODE_ATTRIBUTE: label = "node attribute"; break;
 		case ofbx::Object::Type::CLUSTER: label = "cluster"; break;
 		case ofbx::Object::Type::SKIN: label = "skin"; break;
 		case ofbx::Object::Type::ANIMATION_STACK: label = "animation stack"; break;

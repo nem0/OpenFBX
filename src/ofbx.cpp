@@ -10,7 +10,7 @@
 namespace ofbx
 {
 
-	
+
 struct Error
 {
 	Error() {}
@@ -23,12 +23,12 @@ struct Error
 const char* Error::s_message = "";
 
 
-template <typename T>
-struct OptionalError
+template <typename T> struct OptionalError
 {
 	OptionalError(Error error)
 		: is_error(true)
-	{}
+	{
+	}
 
 
 	OptionalError(T _value)
@@ -40,35 +40,32 @@ struct OptionalError
 
 	T getValue() const
 	{
-		#ifdef _DEBUG
-			assert(error_checked);
-		#endif
+#ifdef _DEBUG
+		assert(error_checked);
+#endif
 		return value;
 	}
 
 
 	bool isError()
 	{
-		#ifdef _DEBUG
-			error_checked = true;
-		#endif
+#ifdef _DEBUG
+		error_checked = true;
+#endif
 		return is_error;
 	}
 
-	
-	#ifdef _DEBUG
-		~OptionalError()
-		{
-			assert(error_checked);
-		}
-	#endif
+
+#ifdef _DEBUG
+	~OptionalError() { assert(error_checked); }
+#endif
 
 private:
 	T value;
 	bool is_error;
-	#ifdef _DEBUG
-		bool error_checked = false;
-	#endif
+#ifdef _DEBUG
+	bool error_checked = false;
+#endif
 };
 
 
@@ -314,9 +311,42 @@ struct Element : IElement
 };
 
 
+static const Element* findChild(const Element& element, const char* id)
+{
+	Element* const* iter = &element.child;
+	while (*iter)
+	{
+		if ((*iter)->id == id) return *iter;
+		iter = &(*iter)->sibling;
+	}
+	return nullptr;
+}
+
+
+static IElement* resolveProperty(const Object& obj, const char* name)
+{
+	const Element* props = findChild((const Element&)obj.element, "Properties70");
+	if (!props) return nullptr;
+
+	Element* prop = props->child;
+	while (prop)
+	{
+		if (prop->first_property && prop->first_property->value == name)
+		{
+			return prop;
+		}
+		prop = prop->sibling;
+	}
+	return nullptr;
+}
+
+
+static Object* resolveObjectLinkReverse(const Object& obj, Object::Type type);
+
+
 static Vec3 resolveVec3Property(const Object& object, const char* name, const Vec3& default_value)
 {
-	Element* element = (Element*)object.resolveProperty(name);
+	Element* element = (Element*)resolveProperty(object, name);
 	if (!element) return default_value;
 	Property* x = (Property*)element->getProperty(4);
 	if (!x || !x->next || !x->next->next) return default_value;
@@ -329,6 +359,7 @@ Object::Object(const Scene& _scene, const IElement& _element)
 	: scene(_scene)
 	, element(_element)
 	, is_node(false)
+	, node_attribute(nullptr)
 {
 	auto& e = (Element&)_element;
 	if (e.first_property && e.first_property->next)
@@ -364,8 +395,7 @@ static void decompress(const u8* in, size_t in_size, u8* out, size_t out_size)
 }
 
 
-template <typename T>
-static OptionalError<T> read(Cursor* cursor)
+template <typename T> static OptionalError<T> read(Cursor* cursor)
 {
 	if (cursor->current + sizeof(T) > cursor->end) return Error("Reading past the end");
 	T value = *(const T*)cursor->current;
@@ -453,8 +483,7 @@ static OptionalError<Property*> readProperty(Cursor* cursor)
 			cursor->current += comp_len.getValue();
 			break;
 		}
-		default: 
-			return Error("Unknown property type");
+		default: return Error("Unknown property type");
 	}
 	prop->value.end = cursor->current;
 	return prop.release();
@@ -488,7 +517,7 @@ static OptionalError<Element*> readElement(Cursor* cursor)
 	{
 		OptionalError<Property*> prop = readProperty(cursor);
 		if (prop.isError()) return Error();
-		
+
 		*prop_link = prop.getValue();
 		prop_link = &(*prop_link)->next;
 	}
@@ -508,7 +537,7 @@ static OptionalError<Element*> readElement(Cursor* cursor)
 	}
 
 	if (cursor->current + BLOCK_SENTINEL_LENGTH > cursor->end) return Error("Reading past the end");
-	
+
 	cursor->current += BLOCK_SENTINEL_LENGTH;
 	return element.release();
 }
@@ -541,18 +570,6 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size)
 		element = &(*element)->sibling;
 	}
 	return root.release();
-}
-
-
-static const Element* findChild(const Element& element, const char* id)
-{
-	Element* const* iter = &element.child;
-	while (*iter)
-	{
-		if ((*iter)->id == id) return *iter;
-		iter = &(*iter)->sibling;
-	}
-	return nullptr;
 }
 
 
@@ -634,7 +651,6 @@ struct MeshImpl : Mesh
 	const Geometry* geometry = nullptr;
 	const Scene& scene;
 	std::vector<const Material*> materials;
-
 };
 
 
@@ -655,10 +671,7 @@ struct MaterialImpl : Material
 	Type getType() const override { return Type::MATERIAL; }
 
 
-	const Texture* getTexture(Texture::TextureType type) const override
-	{
-		return textures[type];
-	}
+	const Texture* getTexture(Texture::TextureType type) const override { return textures[type]; }
 
 	const Texture* textures[Texture::TextureType::COUNT];
 };
@@ -698,7 +711,7 @@ struct NodeAttributeImpl : NodeAttribute
 		: NodeAttribute(_scene, _element)
 	{
 	}
-	Type getType() const override { return Type::NOTE_ATTRIBUTE; }
+	Type getType() const override { return Type::NODE_ATTRIBUTE; }
 	DataView getAttributeType() const override { return attribute_type; }
 
 
@@ -724,7 +737,7 @@ struct GeometryImpl : Geometry
 	struct NewVertex
 	{
 		~NewVertex() { delete next; }
-		
+
 		int index = -1;
 		NewVertex* next = nullptr;
 	};
@@ -822,7 +835,7 @@ struct ClusterImpl : Cluster
 	{
 		assert(skin);
 
-		GeometryImpl* geom = (GeometryImpl*)skin->resolveObjectLinkReverse(Object::Type::GEOMETRY);
+		GeometryImpl* geom = (GeometryImpl*)resolveObjectLinkReverse(*skin, Object::Type::GEOMETRY);
 		if (!geom) return;
 
 		std::vector<int> old_indices;
@@ -905,7 +918,7 @@ struct AnimationStackImpl : AnimationStack
 	const AnimationLayer* getLayer(int index) const
 	{
 		assert(index == 0);
-		return resolveObjectLink<AnimationLayer>(index);
+		return resolveObjectLink<AnimationLayer>(nullptr, index);
 	}
 
 
@@ -1024,16 +1037,10 @@ struct Scene : IScene
 	int getMeshCount() const override { return (int)m_meshes.size(); }
 
 
-	const Object *const * getAllObjects() const override
-	{
-		return m_all_objects.empty() ? nullptr : &m_all_objects[0];
-	}
+	const Object* const* getAllObjects() const override { return m_all_objects.empty() ? nullptr : &m_all_objects[0]; }
 
 
-	int getAllObjectCount() const override
-	{
-		return (int)m_all_objects.size();
-	}
+	int getAllObjectCount() const override { return (int)m_all_objects.size(); }
 
 
 	const AnimationStack* getAnimationStack(int index) const override
@@ -1105,7 +1112,7 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 
 		auto getCoord = [](const Curve& curve, u64 fbx_time) {
 			if (!curve.curve) return 0.0f;
-			
+
 			const u64* times = curve.curve->getKeyTime();
 			const float* values = curve.curve->getKeyValue();
 			int count = curve.curve->getKeyCount();
@@ -1123,11 +1130,7 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 			return values[0];
 		};
 
-		return{
-			getCoord(curves[0], fbx_time),
-			getCoord(curves[1], fbx_time),
-			getCoord(curves[2], fbx_time)
-		};
+		return {getCoord(curves[0], fbx_time), getCoord(curves[1], fbx_time), getCoord(curves[2], fbx_time)};
 	}
 
 
@@ -1546,7 +1549,8 @@ static Geometry* parseGeometry(const Scene& scene, const Element& element)
 
 		assert(mapping_element);
 		assert(reference_element);
-		if (mapping_element->first_property->value == "ByPolygon" && reference_element->first_property->value == "IndexToDirect")
+		if (mapping_element->first_property->value == "ByPolygon" &&
+			reference_element->first_property->value == "IndexToDirect")
 		{
 			geom->materials.reserve(geom->vertices.size() / 3);
 			for (int& i : geom->materials) i = -1;
@@ -1811,6 +1815,14 @@ static void parseObjects(const Element& root, Scene* scene)
 		Object* parent = scene->m_object_map[con.to].object;
 		Object* child = scene->m_object_map[con.from].object;
 		if (!child) continue;
+		if (!parent) continue;
+
+		if (child->getType() == Object::Type::NODE_ATTRIBUTE)
+		{
+			assert(!parent->node_attribute);
+			parent->node_attribute = (NodeAttribute*)child;
+		}
+
 		switch (parent->getType())
 		{
 			case Object::Type::MESH:
@@ -1822,9 +1834,7 @@ static void parseObjects(const Element& root, Scene* scene)
 						assert(!mesh->geometry);
 						mesh->geometry = (Geometry*)child;
 						break;
-					case Object::Type::MATERIAL:
-						mesh->materials.push_back((Material*)child);
-						break;
+					case Object::Type::MATERIAL: mesh->materials.push_back((Material*)child); break;
 				}
 				break;
 			}
@@ -1846,8 +1856,10 @@ static void parseObjects(const Element& root, Scene* scene)
 				if (child->getType() == Object::Type::TEXTURE)
 				{
 					Texture::TextureType type = Texture::COUNT;
-					if (con.property == "NormalMap") type = Texture::NORMAL;
-					else if (con.property == "DiffuseColor") type = Texture::DIFFUSE;
+					if (con.property == "NormalMap")
+						type = Texture::NORMAL;
+					else if (con.property == "DiffuseColor")
+						type = Texture::DIFFUSE;
 					if (type == Texture::COUNT) break;
 
 					assert(!mat->textures[type]);
@@ -1910,7 +1922,6 @@ static void parseObjects(const Element& root, Scene* scene)
 			case Object::Type::CLUSTER: ((ClusterImpl*)iter.second.object)->postprocess(); break;
 		}
 	}
-
 }
 
 
@@ -1967,10 +1978,10 @@ const AnimationCurveNode* Object::getCurveNode(const char* prop, const Animation
 {
 	const AnimationCurveNode* curve_node = nullptr;
 	for (int i = 0;
-		 curve_node = (const AnimationCurveNode*)resolveObjectLink(Object::Type::ANIMATION_CURVE_NODE, prop, i);
+		 curve_node = resolveObjectLink<AnimationCurveNode>(prop, i);
 		 ++i)
 	{
-		Object* curve_node_layer = curve_node->resolveObjectLinkReverse(Object::Type::ANIMATION_LAYER);
+		Object* curve_node_layer = resolveObjectLinkReverse(*curve_node, Object::Type::ANIMATION_LAYER);
 		if (curve_node_layer == &layer) return curve_node;
 	}
 	return nullptr;
@@ -2051,77 +2062,9 @@ Matrix Object::getGlobalTransform() const
 }
 
 
-IElement* Object::resolveProperty(const char* name) const
-{
-	const Element* props = findChild((const Element&)element, "Properties70");
-	if (!props) return nullptr;
-
-	Element* prop = props->child;
-	while (prop)
-	{
-		if (prop->first_property && prop->first_property->value == name)
-		{
-			return prop;
-		}
-		prop = prop->sibling;
-	}
-	return nullptr;
-}
-
-
-Object* Object::resolveObjectLinkReverse(Object::Type type) const
-{
-	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
-	for (auto& connection : scene.m_connections)
-	{
-		if (connection.from == id && connection.to != 0)
-		{
-			Object* obj = scene.m_object_map.find(connection.to)->second.object;
-			if (obj && obj->getType() == type) return obj;
-		}
-	}
-	return nullptr;
-}
-
-
-int Object::resolveObjectLinkCount(Object::Type type) const
-{
-	int count = 0;
-	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
-	for (auto& connection : scene.m_connections)
-	{
-		if (connection.to == id && connection.from != 0)
-		{
-			Object* obj = scene.m_object_map.find(connection.from)->second.object;
-			if (obj && obj->getType() == type) ++count;
-		}
-	}
-	return count;
-}
-
-
 const IScene& Object::getScene() const
 {
 	return scene;
-}
-
-
-int Object::resolveObjectLinkCount() const
-{
-	int count = 0;
-	u64 id = element.getFirstProperty() ? element.getFirstProperty()->getValue().toLong() : 0;
-	for (auto& connection : scene.m_connections)
-	{
-		if (connection.to == id && connection.from != 0)
-		{
-			Object* obj = scene.m_object_map.find(connection.from)->second.object;
-			if (obj)
-			{
-				++count;
-			}
-		}
-	}
-	return count;
 }
 
 
@@ -2138,6 +2081,21 @@ Object* Object::resolveObjectLink(int idx) const
 				if (idx == 0) return obj;
 				--idx;
 			}
+		}
+	}
+	return nullptr;
+}
+
+
+static Object* resolveObjectLinkReverse(const Object& parent, Object::Type type)
+{
+	u64 id = parent.element.getFirstProperty() ? parent.element.getFirstProperty()->getValue().toLong() : 0;
+	for (auto& connection : parent.scene.m_connections)
+	{
+		if (connection.from == id && connection.to != 0)
+		{
+			Object* obj = parent.scene.m_object_map.find(connection.to)->second.object;
+			if (obj && obj->getType() == type) return obj;
 		}
 	}
 	return nullptr;

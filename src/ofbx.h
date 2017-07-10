@@ -123,7 +123,7 @@ struct Object
 		TEXTURE,
 		LIMB_NODE,
 		NULL_NODE,
-		NOTE_ATTRIBUTE,
+		NODE_ATTRIBUTE,
 		CLUSTER,
 		SKIN,
 		ANIMATION_STACK,
@@ -138,12 +138,8 @@ struct Object
 	virtual Type getType() const = 0;
 	
 	const IScene& getScene() const;
-	int resolveObjectLinkCount() const;
-	int resolveObjectLinkCount(Type type) const;
 	Object* resolveObjectLink(int idx) const;
 	Object* resolveObjectLink(Type type, const char* property, int idx) const;
-	Object* resolveObjectLinkReverse(Type type) const;
-	IElement* resolveProperty(const char* name) const;
 	Object* getParent() const;
 
 	Vec3 getRotationOffset() const;
@@ -159,17 +155,18 @@ struct Object
 	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
 	const AnimationCurveNode* getCurveNode(const char* prop, const AnimationLayer& layer) const;
 
-	template <typename T> T* resolveObjectLink(int idx) const
+	template <typename T> T* resolveObjectLink(const char* prop, int idx) const
 	{
-		return static_cast<T*>(resolveObjectLink(T::s_type, nullptr, idx));
+		return static_cast<T*>(resolveObjectLink(T::s_type, prop, idx));
 	}
 
 	u64 id;
 	char name[128];
 	const IElement& element;
+	const Object* node_attribute;
+	const Scene& scene;
 
 protected:
-	const Scene& scene;
 	bool is_node;
 };
 
@@ -231,7 +228,7 @@ struct Skin : Object
 
 struct NodeAttribute : Object
 {
-	static const Type s_type = Type::NOTE_ATTRIBUTE;
+	static const Type s_type = Type::NODE_ATTRIBUTE;
 
 	NodeAttribute(const Scene& _scene, const IElement& _element);
 
