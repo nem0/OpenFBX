@@ -90,10 +90,10 @@ struct IElementProperty
 	virtual IElementProperty* getNext() const = 0;
 	virtual DataView getValue() const = 0;
 	virtual int getCount() const = 0;
-	virtual void getValues(double* values, int max_size) const = 0;
-	virtual void getValues(int* values, int max_size) const = 0;
-	virtual void getValues(float* values, int max_size) const = 0;
-	virtual void getValues(u64* values, int max_size) const = 0;
+	virtual bool getValues(double* values, int max_size) const = 0;
+	virtual bool getValues(int* values, int max_size) const = 0;
+	virtual bool getValues(float* values, int max_size) const = 0;
+	virtual bool getValues(u64* values, int max_size) const = 0;
 };
 
 
@@ -140,6 +140,7 @@ struct Object
 	const IScene& getScene() const;
 	Object* resolveObjectLink(int idx) const;
 	Object* resolveObjectLink(Type type, const char* property, int idx) const;
+	Object* resolveObjectLinkReverse(Type type) const;
 	Object* getParent() const;
 
 	Vec3 getRotationOffset() const;
@@ -155,18 +156,18 @@ struct Object
 	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
 	const AnimationCurveNode* getCurveNode(const char* prop, const AnimationLayer& layer) const;
 
-	template <typename T> T* resolveObjectLink(const char* prop, int idx) const
+	template <typename T> T* resolveObjectLink(int idx) const
 	{
-		return static_cast<T*>(resolveObjectLink(T::s_type, prop, idx));
+		return static_cast<T*>(resolveObjectLink(T::s_type, nullptr, idx));
 	}
 
 	u64 id;
 	char name[128];
 	const IElement& element;
 	const Object* node_attribute;
-	const Scene& scene;
 
 protected:
+	const Scene& scene;
 	bool is_node;
 };
 
