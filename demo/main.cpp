@@ -293,28 +293,33 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 
 void onGUI()
 {
+
 	auto& io = ImGui::GetIO();
 	io.KeyShift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 	io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 	io.KeyCtrl = (GetKeyState(VK_MENU) & 0x8000) != 0;
 
 	ImGui::NewFrame();
-	ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
-	if (ImGui::Begin("Elements"))
-	{
-		const ofbx::IElement* root = g_scene->getRootElement();
-		if (root && root->getFirstChild()) showGUI(*root->getFirstChild());
-	}
-	ImGui::End();
 
-	if (ImGui::Begin("Properties") && g_selected_element)
+	if (g_scene)
 	{
-		ofbx::IElementProperty* prop = g_selected_element->getFirstProperty();
-		if(prop) showGUI(*prop);
-	}
-	ImGui::End();
+		ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
+		if (ImGui::Begin("Elements"))
+		{
+			const ofbx::IElement* root = g_scene->getRootElement();
+			if (root && root->getFirstChild()) showGUI(*root->getFirstChild());
+		}
+		ImGui::End();
 
-	showObjectsGUI(*g_scene);
+		if (ImGui::Begin("Properties") && g_selected_element)
+		{
+			ofbx::IElementProperty* prop = g_selected_element->getFirstProperty();
+			if (prop) showGUI(*prop);
+		}
+		ImGui::End();
+
+		showObjectsGUI(*g_scene);
+	}
 
 	ImGui::Render();
 }
