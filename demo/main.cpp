@@ -47,7 +47,7 @@ void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 	{
 		case ofbx::IElementProperty::DOUBLE: sprintf_s(tmp, "%f", prop.getValue().toDouble()); break;
 		case ofbx::IElementProperty::LONG: sprintf_s(tmp, "%" PRId64, prop.getValue().toLong()); break;
-		case ofbx::IElementProperty::INTEGER: sprintf_s(tmp, "%d", *(int*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::INTEGER: sprintf_s(tmp, "%d", prop.getValue().toInt()); break;
 		case ofbx::IElementProperty::STRING: prop.getValue().toString(tmp); break;
 		default: sprintf_s(tmp, "Type: %c", (char)prop.getType()); break;
 	}
@@ -114,10 +114,10 @@ void showGUI(ofbx::IElementProperty& prop)
 	char tmp[256];
 	switch (prop.getType())
 	{
-		case ofbx::IElementProperty::LONG: ImGui::Text("Long: %" PRId64, *(ofbx::u64*)prop.getValue().begin); break;
-		case ofbx::IElementProperty::FLOAT: ImGui::Text("Float: %f", *(float*)prop.getValue().begin); break;
-		case ofbx::IElementProperty::DOUBLE: ImGui::Text("Double: %f", *(double*)prop.getValue().begin); break;
-		case ofbx::IElementProperty::INTEGER: ImGui::Text("Integer: %d", *(int*)prop.getValue().begin); break;
+		case ofbx::IElementProperty::LONG: ImGui::Text("Long: %" PRId64, prop.getValue().toLong()); break;
+		case ofbx::IElementProperty::FLOAT: ImGui::Text("Float: %f", prop.getValue().toFloat()); break;
+		case ofbx::IElementProperty::DOUBLE: ImGui::Text("Double: %f", prop.getValue().toDouble()); break;
+		case ofbx::IElementProperty::INTEGER: ImGui::Text("Integer: %d", prop.getValue().toInt()); break;
 		case ofbx::IElementProperty::ARRAY_FLOAT: showArray<float>("float array", "%f", prop); break;
 		case ofbx::IElementProperty::ARRAY_DOUBLE: showArray<double>("double array", "%f", prop); break;
 		case ofbx::IElementProperty::ARRAY_INT: showArray<int>("int array", "%d", prop); break;
