@@ -1210,7 +1210,7 @@ struct ClusterImpl : Cluster
 			int old_idx = ir[i];
 			double w = wr[i];
 			GeometryImpl::NewVertex* n = &geom->to_new_vertices[old_idx];
-      if (n->index == -1) continue; // skip vertices which aren't indexed.
+			if (n->index == -1) continue; // skip vertices which aren't indexed.
 			while (n)
 			{
 				indices.push_back(n->index);
