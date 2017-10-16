@@ -304,8 +304,8 @@ bool DataView::operator==(const char* rhs) const
 
 
 struct Property;
-template <typename T> bool parseArrayRaw(const Property& property, T* out, int max_size);
-template <typename T> bool parseBinaryArray(const Property& property, std::vector<T>* out);
+template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
+template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
 
 
 struct Property : IElementProperty
