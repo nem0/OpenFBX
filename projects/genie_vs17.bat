@@ -1,1 +1,1 @@
-genie.exe vs2015
+genie.exe vs2017
