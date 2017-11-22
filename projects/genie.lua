@@ -79,9 +79,6 @@ function defaultConfigurations()
 	configuration { "asmjs" }
 		buildoptions { "-std=c++14" }
 		
-	configuration {}
-		files { "lumix.natvis" }
-
 end
 
 function linkLib(lib)
