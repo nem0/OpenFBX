@@ -9,6 +9,8 @@ Feel free to request new features. I will eventually try to add all missing fbx 
 
 ## Use the library in your own project
 
+Note: It's recommended to be familiar with fbx format to use this library, you can read about it more [here](http://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_F194000D_5AD4_49C1_86CC_5DAC2CE64E97_htm).
+
 1. add files from src to your project
 2. use
 
