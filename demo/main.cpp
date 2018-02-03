@@ -55,39 +55,41 @@ void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 }
 
 
-void showGUI(ofbx::IElement& element)
+void showGUI(const ofbx::IElement& parent)
 {
-	auto id = element.getID();
-	char label[128];
-	id.toString(label);
-	strcat_s(label, " (");
-	ofbx::IElementProperty* prop = element.getFirstProperty();
-	bool first = true;
-	while (prop)
+	for (const ofbx::IElement* element = parent.getFirstChild(); element; element = element->getSibling())
 	{
-		if(!first)
-			strcat_s(label, ", ");
-		first = false;
-		catProperty(label, *prop);
-		prop = prop->getNext();
-	}
-	strcat_s(label, ")");
+		auto id = element->getID();
+		char label[128];
+		id.toString(label);
+		strcat_s(label, " (");
+		ofbx::IElementProperty* prop = element->getFirstProperty();
+		bool first = true;
+		while (prop)
+		{
+			if (!first)
+				strcat_s(label, ", ");
+			first = false;
+			catProperty(label, *prop);
+			prop = prop->getNext();
+		}
+		strcat_s(label, ")");
 
-	ImGui::PushID((const void*)id.begin);
-	ImGuiTreeElementFlags flags = g_selected_element == &element ? ImGuiTreeElementFlags_Selected : 0;
-	if (!element.getFirstChild()) flags |= ImGuiTreeElementFlags_Leaf;
-	if (ImGui::TreeElementEx(label, flags))
-	{
-		if(ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = &element;
-		if (element.getFirstChild()) showGUI(*element.getFirstChild());
-		ImGui::TreePop();
+		ImGui::PushID((const void*)id.begin);
+		ImGuiTreeElementFlags flags = g_selected_element == element ? ImGuiTreeElementFlags_Selected : 0;
+		if (!element->getFirstChild()) flags |= ImGuiTreeElementFlags_Leaf;
+		if (ImGui::TreeElementEx(label, flags))
+		{
+			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = element;
+			if (element->getFirstChild()) showGUI(*element);
+			ImGui::TreePop();
+		}
+		else
+		{
+			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = element;
+		}
+		ImGui::PopID();
 	}
-	else
-	{
-		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = &element;
-	}
-	ImGui::PopID();
-	if (element.getSibling()) showGUI(*element.getSibling());
 }
 
 
@@ -307,7 +309,7 @@ void onGUI()
 		if (ImGui::Begin("Elements"))
 		{
 			const ofbx::IElement* root = g_scene->getRootElement();
-			if (root && root->getFirstChild()) showGUI(*root->getFirstChild());
+			if (root && root->getFirstChild()) showGUI(*root);
 		}
 		ImGui::End();
 
