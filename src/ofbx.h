@@ -176,7 +176,9 @@ struct Object
 	Vec3 getLocalRotation() const;
 	Vec3 getLocalScaling() const;
 	Matrix getGlobalTransform() const;
+	Matrix getLocalTransform() const;
 	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
+	Matrix evalLocal(const Vec3& translation, const Vec3& rotation, const Vec3& scaling) const;
 	bool isNode() const { return is_node; }
 
 

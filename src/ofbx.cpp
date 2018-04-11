@@ -2722,7 +2722,12 @@ Vec3 Object::getScalingPivot() const
 
 Matrix Object::evalLocal(const Vec3& translation, const Vec3& rotation) const
 {
-	Vec3 scaling = getLocalScaling();
+	return evalLocal(translation, rotation, getLocalScaling());
+}
+
+
+Matrix Object::evalLocal(const Vec3& translation, const Vec3& rotation, const Vec3& scaling) const
+{
 	Vec3 rotation_pivot = getRotationPivot();
 	Vec3 scaling_pivot = getScalingPivot();
 	RotationOrder rotation_order = getRotationOrder();
@@ -2792,6 +2797,12 @@ Matrix Object::getGlobalTransform() const
 	if (!parent) return evalLocal(getLocalTranslation(), getLocalRotation());
 
 	return parent->getGlobalTransform() * evalLocal(getLocalTranslation(), getLocalRotation());
+}
+
+
+Matrix Object::getLocalTransform() const
+{
+    return evalLocal(getLocalTranslation(), getLocalRotation(), getLocalScaling());
 }
 
 
