@@ -2622,6 +2622,7 @@ static bool parseObjects(const Element& root, Scene* scene)
 
 					if (mat->textures[type])
 					{
+						break;// This may happen for some models (eg. 2 normal maps in use)
 						Error::s_message = "Invalid material";
 						return false;
 					}
