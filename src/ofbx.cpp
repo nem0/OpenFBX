@@ -2391,30 +2391,30 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 						if (!node->first_property)
 							continue;
 
-#define get_property(name, field, type) if(node->first_property->value == name) \
+#define get_property(name, field, type, getter) if(node->first_property->value == name) \
 						{ \
 							ofbx::IElementProperty* prop = node->getProperty(4); \
 							if (prop) \
 							{ \
 								ofbx::DataView value = prop->getValue(); \
-								scene->m_settings.field = *(type*)value.begin; \
+								scene->m_settings.field = (type)value.getter(); \
 							} \
 						}
 
-						get_property("UpAxis", UpAxis, UpVector);
-						get_property("UpAxisSign", UpAxisSign, int);
-						get_property("FrontAxis", FrontAxis, FrontVector);
-						get_property("FrontAxisSign", FrontAxisSign, int);
-						get_property("CoordAxis", CoordAxis, CoordSystem);
-						get_property("CoordAxisSign", CoordAxisSign, int);
-						get_property("OriginalUpAxis", OriginalUpAxis, int);
-						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int);
-						get_property("UnitScaleFactor", UnitScaleFactor, float);
-						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float);
-						get_property("TimeSpanStart", TimeSpanStart, u64);
-						get_property("TimeSpanStop", TimeSpanStop, u64);
-						get_property("TimeMode", TimeMode, FrameRate);
-						get_property("CustomFrameRate", CustomFrameRate, float);
+						get_property("UpAxis", UpAxis, UpVector, toInt);
+						get_property("UpAxisSign", UpAxisSign, int, toInt);
+						get_property("FrontAxis", FrontAxis, FrontVector, toInt);
+						get_property("FrontAxisSign", FrontAxisSign, int, toInt);
+						get_property("CoordAxis", CoordAxis, CoordSystem, toInt);
+						get_property("CoordAxisSign", CoordAxisSign, int, toInt);
+						get_property("OriginalUpAxis", OriginalUpAxis, int, toInt);
+						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int, toInt);
+						get_property("UnitScaleFactor", UnitScaleFactor, float, toDouble);
+						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float, toDouble);
+						get_property("TimeSpanStart", TimeSpanStart, u64, toU64);
+						get_property("TimeSpanStop", TimeSpanStop, u64, toU64);
+						get_property("TimeMode", TimeMode, FrameRate, toInt);
+						get_property("CustomFrameRate", CustomFrameRate, float, toDouble);
 
 #undef get_property
 
