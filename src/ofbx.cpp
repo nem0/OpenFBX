@@ -2159,7 +2159,7 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
             std::vector<int> tmp_indices;
             GeometryImpl::VertexDataMapping mapping;
             if (!parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid UVs");
-            if (!tmp.empty())
+			if (!tmp.empty() && tmp_indices[0] != -1)
             {
                 uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
                 splat(&uvs, mapping, tmp, tmp_indices, original_indices);
@@ -2643,7 +2643,7 @@ static bool parseObjects(const Element& root, Scene* scene)
 				ClusterImpl* cluster = (ClusterImpl*)parent;
 				if (child->getType() == Object::Type::LIMB_NODE || child->getType() == Object::Type::MESH || child->getType() == Object::Type::NULL_NODE)
 				{
-					if (cluster->link)
+					if (cluster->link && cluster->link != child)
 					{
 						Error::s_message = "Invalid cluster";
 						return false;
