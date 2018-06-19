@@ -907,7 +907,7 @@ static OptionalError<Element*> tokenizeText(const u8* data, size_t size)
 }
 
 
-static OptionalError<Element*> tokenize(const u8* data, size_t size)
+static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& version)
 {
 	Cursor cursor;
 	cursor.begin = data;
@@ -916,7 +916,8 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size)
 
 	const Header* header = (const Header*)cursor.current;
 	cursor.current += sizeof(*header);
-
+	version = header->version;
+	
 	Element* root = new Element();
 	root->first_property = nullptr;
 	root->id.begin = nullptr;
@@ -2919,7 +2920,13 @@ IScene* load(const u8* data, int size)
 	std::unique_ptr<Scene> scene = std::make_unique<Scene>();
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
-	OptionalError<Element*> root = tokenize(&scene->m_data[0], size);
+	u32 version;
+	OptionalError<Element*> root = tokenize(&scene->m_data[0], size, version);
+	if (version < 6200)
+	{
+		Error::s_message = "Unsupported FBX file format version. Minimum supported version is 6.2";
+		return nullptr;
+	}
 	if (root.isError())
 	{
 		Error::s_message = "";
