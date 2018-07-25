@@ -2160,7 +2160,7 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
             std::vector<int> tmp_indices;
             GeometryImpl::VertexDataMapping mapping;
             if (!parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid UVs");
-			if (!tmp.empty() && tmp_indices[0] != -1)
+			if (!tmp.empty() && (tmp_indices.empty() || tmp_indices[0] != -1))
             {
                 uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
                 splat(&uvs, mapping, tmp, tmp_indices, original_indices);
