@@ -565,17 +565,18 @@ static void deleteElement(Element* el)
 {
 	if (!el) return;
 
-	delete el->first_property;
-	deleteElement(el->child);
 	Element* iter = el;
-	// do not use recursion to avoid stack overflow
+	// do not use recursion to delete siblings to avoid stack overflow
 	do
 	{
 		Element* next = iter->sibling;
+		delete iter->first_property;
+		deleteElement(iter->child);
 		delete iter;
 		iter = next;
 	} while (iter);
 }
+
 
 
 static OptionalError<u64> readElementOffset(Cursor* cursor, u16 version)
