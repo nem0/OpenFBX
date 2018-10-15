@@ -2083,7 +2083,9 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	assert(element.first_property);
 
 	const Element* vertices_element = findChild(element, "Vertices");
-	if (!vertices_element || !vertices_element->first_property) return Error("Vertices missing");
+	if (!vertices_element || !vertices_element->first_property) {
+		return new GeometryImpl(scene, element);
+	}
 
 	const Element* polys_element = findChild(element, "PolygonVertexIndex");
 	if (!polys_element || !polys_element->first_property) return Error("Indices missing");
