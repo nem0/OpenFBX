@@ -2470,6 +2470,10 @@ static bool parseObjects(const Element& root, Scene* scene)
 			{
 				obj = parseGeometry(*scene, *iter.second.element);
 			}
+			else if (last_prop && last_prop->value == "Line")
+			{
+				obj = parseGeometry(*scene, *iter.second.element);
+			}
 		}
 		else if (iter.second.element->id == "Material")
 		{
@@ -2530,6 +2534,8 @@ static bool parseObjects(const Element& root, Scene* scene)
 				}
 				else if (class_prop->getValue() == "LimbNode")
 					obj = parseLimbNode(*scene, *iter.second.element);
+				else if (class_prop->getValue() == "Line")
+					obj = parse<NullImpl>(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Null")
 					obj = parse<NullImpl>(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Root")
