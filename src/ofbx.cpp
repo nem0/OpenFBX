@@ -6,6 +6,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <string>
 
 
 namespace ofbx
@@ -511,7 +512,7 @@ static OptionalError<Property*> readProperty(Cursor* cursor)
 {
 	if (cursor->current == cursor->end) return Error("Reading past the end");
 
-	std::unique_ptr<Property> prop = std::make_unique<Property>();
+	std::unique_ptr<Property> prop(new Property());
 	prop->next = nullptr;
 	prop->type = *cursor->current;
 	++cursor->current;
@@ -565,17 +566,18 @@ static void deleteElement(Element* el)
 {
 	if (!el) return;
 
-	delete el->first_property;
-	deleteElement(el->child);
 	Element* iter = el;
-	// do not use recursion to avoid stack overflow
+	// do not use recursion to delete siblings to avoid stack overflow
 	do
 	{
 		Element* next = iter->sibling;
+		delete iter->first_property;
+		deleteElement(iter->child);
 		delete iter;
 		iter = next;
 	} while (iter);
 }
+
 
 
 static OptionalError<u64> readElementOffset(Cursor* cursor, u16 version)
@@ -715,7 +717,7 @@ static DataView readTextToken(Cursor* cursor)
 
 static OptionalError<Property*> readTextProperty(Cursor* cursor)
 {
-	std::unique_ptr<Property> prop = std::make_unique<Property>();
+	std::unique_ptr<Property> prop(new Property());
 	prop->value.is_binary = false;
 	prop->next = nullptr;
 	if (*cursor->current == '"')
@@ -1583,7 +1585,7 @@ template <typename T> static OptionalError<Object*> parse(const Scene& scene, co
 
 static OptionalError<Object*> parseCluster(const Scene& scene, const Element& element)
 {
-	std::unique_ptr<ClusterImpl> obj = std::make_unique<ClusterImpl>(scene, element);
+	std::unique_ptr<ClusterImpl> obj(new ClusterImpl(scene, element));
 
 	const Element* transform_link = findChild(element, "TransformLink");
 	if (transform_link && transform_link->first_property)
@@ -2017,7 +2019,7 @@ template <typename T> static void remap(std::vector<T>* out, const std::vector<i
 
 static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Element& element)
 {
-	std::unique_ptr<AnimationCurveImpl> curve = std::make_unique<AnimationCurveImpl>(scene, element);
+	std::unique_ptr<AnimationCurveImpl> curve(new AnimationCurveImpl(scene, element));
 
 	const Element* times = findChild(element, "KeyTime");
 	const Element* values = findChild(element, "KeyValueFloat");
@@ -2082,12 +2084,14 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	assert(element.first_property);
 
 	const Element* vertices_element = findChild(element, "Vertices");
-	if (!vertices_element || !vertices_element->first_property) return Error("Vertices missing");
+	if (!vertices_element || !vertices_element->first_property) {
+		return new GeometryImpl(scene, element);
+	}
 
 	const Element* polys_element = findChild(element, "PolygonVertexIndex");
 	if (!polys_element || !polys_element->first_property) return Error("Indices missing");
 
-	std::unique_ptr<GeometryImpl> geom = std::make_unique<GeometryImpl>(scene, element);
+	std::unique_ptr<GeometryImpl> geom(new GeometryImpl(scene, element));
 
 	std::vector<Vec3> vertices;
 	if (!parseDoubleVecData(*vertices_element->first_property, &vertices)) return Error("Failed to parse vertices");
@@ -2527,9 +2531,7 @@ static bool parseObjects(const Element& root, Scene* scene)
 				}
 				else if (class_prop->getValue() == "LimbNode")
 					obj = parseLimbNode(*scene, *iter.second.element);
-				else if (class_prop->getValue() == "Null")
-					obj = parse<NullImpl>(*scene, *iter.second.element);
-				else if (class_prop->getValue() == "Root")
+				else
 					obj = parse<NullImpl>(*scene, *iter.second.element);
 			}
 		}
@@ -2917,7 +2919,7 @@ Object* Object::getParent() const
 
 IScene* load(const u8* data, int size)
 {
-	std::unique_ptr<Scene> scene = std::make_unique<Scene>();
+	std::unique_ptr<Scene> scene(new Scene());
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
 	u32 version;
