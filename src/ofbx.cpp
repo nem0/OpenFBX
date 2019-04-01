@@ -909,7 +909,7 @@ static OptionalError<Element*> tokenizeText(const u8* data, size_t size)
 }
 
 
-static OptionalError<Element*> tokenize(const u8* data, size_t size)
+static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& version)
 {
 	Cursor cursor;
 	cursor.begin = data;
@@ -918,7 +918,8 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size)
 
 	const Header* header = (const Header*)cursor.current;
 	cursor.current += sizeof(*header);
-
+	version = header->version;
+	
 	Element* root = new Element();
 	root->first_property = nullptr;
 	root->id.begin = nullptr;
@@ -2163,7 +2164,7 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
             std::vector<int> tmp_indices;
             GeometryImpl::VertexDataMapping mapping;
             if (!parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid UVs");
-            if (!tmp.empty())
+			if (!tmp.empty() && (tmp_indices.empty() || tmp_indices[0] != -1))
             {
                 uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
                 splat(&uvs, mapping, tmp, tmp_indices, original_indices);
@@ -2395,30 +2396,30 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 						if (!node->first_property)
 							continue;
 
-#define get_property(name, field, type) if(node->first_property->value == name) \
+#define get_property(name, field, type, getter) if(node->first_property->value == name) \
 						{ \
 							ofbx::IElementProperty* prop = node->getProperty(4); \
 							if (prop) \
 							{ \
 								ofbx::DataView value = prop->getValue(); \
-								scene->m_settings.field = *(type*)value.begin; \
+								scene->m_settings.field = (type)value.getter(); \
 							} \
 						}
 
-						get_property("UpAxis", UpAxis, UpVector);
-						get_property("UpAxisSign", UpAxisSign, int);
-						get_property("FrontAxis", FrontAxis, FrontVector);
-						get_property("FrontAxisSign", FrontAxisSign, int);
-						get_property("CoordAxis", CoordAxis, CoordSystem);
-						get_property("CoordAxisSign", CoordAxisSign, int);
-						get_property("OriginalUpAxis", OriginalUpAxis, int);
-						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int);
-						get_property("UnitScaleFactor", UnitScaleFactor, float);
-						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float);
-						get_property("TimeSpanStart", TimeSpanStart, u64);
-						get_property("TimeSpanStop", TimeSpanStop, u64);
-						get_property("TimeMode", TimeMode, FrameRate);
-						get_property("CustomFrameRate", CustomFrameRate, float);
+						get_property("UpAxis", UpAxis, UpVector, toInt);
+						get_property("UpAxisSign", UpAxisSign, int, toInt);
+						get_property("FrontAxis", FrontAxis, FrontVector, toInt);
+						get_property("FrontAxisSign", FrontAxisSign, int, toInt);
+						get_property("CoordAxis", CoordAxis, CoordSystem, toInt);
+						get_property("CoordAxisSign", CoordAxisSign, int, toInt);
+						get_property("OriginalUpAxis", OriginalUpAxis, int, toInt);
+						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int, toInt);
+						get_property("UnitScaleFactor", UnitScaleFactor, float, toDouble);
+						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float, toDouble);
+						get_property("TimeSpanStart", TimeSpanStart, u64, toU64);
+						get_property("TimeSpanStop", TimeSpanStop, u64, toU64);
+						get_property("TimeMode", TimeMode, FrameRate, toInt);
+						get_property("CustomFrameRate", CustomFrameRate, float, toDouble);
 
 #undef get_property
 
@@ -2645,7 +2646,7 @@ static bool parseObjects(const Element& root, Scene* scene)
 				ClusterImpl* cluster = (ClusterImpl*)parent;
 				if (child->getType() == Object::Type::LIMB_NODE || child->getType() == Object::Type::MESH || child->getType() == Object::Type::NULL_NODE)
 				{
-					if (cluster->link)
+					if (cluster->link && cluster->link != child)
 					{
 						Error::s_message = "Invalid cluster";
 						return false;
@@ -2921,7 +2922,13 @@ IScene* load(const u8* data, int size)
 	std::unique_ptr<Scene> scene(new Scene());
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
-	OptionalError<Element*> root = tokenize(&scene->m_data[0], size);
+	u32 version;
+	OptionalError<Element*> root = tokenize(&scene->m_data[0], size, version);
+	if (version < 6200)
+	{
+		Error::s_message = "Unsupported FBX file format version. Minimum supported version is 6.2";
+		return nullptr;
+	}
 	if (root.isError())
 	{
 		Error::s_message = "";
