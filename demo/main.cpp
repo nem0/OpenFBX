@@ -281,7 +281,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 				fprintf(fp, "/");
 			}
 
-			new_face = idx < 0;
+			new_face = idx % 3 == 0;
 			fputc(new_face ? '\n' : ' ', fp);
 		}
 
