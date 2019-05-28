@@ -1117,6 +1117,7 @@ struct GeometryImpl : Geometry
 
 	const Skin* skin = nullptr;
 
+	std::vector<int> indices;
 	std::vector<int> to_old_vertices;
 	std::vector<NewVertex> to_new_vertices;
 
@@ -1128,6 +1129,8 @@ struct GeometryImpl : Geometry
 
 	Type getType() const override { return Type::GEOMETRY; }
 	int getVertexCount() const override { return (int)vertices.size(); }
+	const int* getFaceIndices() const override { return indices.empty() ? nullptr : &indices[0]; }
+	int getIndexCount() const override { return (int)indices.size(); }
 	const Vec3* getVertices() const override { return &vertices[0]; }
 	const Vec3* getNormals() const override { return normals.empty() ? nullptr : &normals[0]; }
 	const Vec2* getUVs(int index = 0) const override { return index < 0 || index >= s_uvs_max || uvs[index].empty() ? nullptr : &uvs[index][0]; }
@@ -2089,10 +2092,12 @@ static void buildGeometryVertexData(
 {
 	triangulate(original_indices, &geom->to_old_vertices, &to_old_indices);
 	geom->vertices.resize(geom->to_old_vertices.size());
+	geom->indices.resize(geom->vertices.size());
 
 	for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
 	{
 		geom->vertices[i] = vertices[geom->to_old_vertices[i]];
+		geom->indices[i] = (i % 3 == 2) ? (-i - 1) : i;
 	}
 
 	geom->to_new_vertices.resize(vertices.size()); // some vertices can be unused, so this isn't necessarily the same size as to_old_vertices.
@@ -2288,7 +2293,7 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	if (!parseBinaryArray(*polys_element->first_property, &original_indices)) return Error("Failed to parse indices");
 
 	std::vector<int> to_old_indices;
-	buildGeometryVertexData(geom, vertices, to_old_indices, original_indices);
+	buildGeometryVertexData(geom, vertices, original_indices, to_old_indices);
 
 	OptionalError<Object*> materialParsingError = parseGeometryMaterials(geom, element, original_indices);
 	if (materialParsingError.isError()) return materialParsingError;
