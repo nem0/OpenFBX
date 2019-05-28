@@ -1135,43 +1135,6 @@ struct GeometryImpl : Geometry
 	const Vec3* getTangents() const override { return tangents.empty() ? nullptr : &tangents[0]; }
 	const Skin* getSkin() const override { return skin; }
 	const int* getMaterials() const override { return materials.empty() ? nullptr : &materials[0]; }
-
-
-	void triangulate(const std::vector<int>& old_indices, std::vector<int>* indices, std::vector<int>* to_old)
-	{
-		assert(indices);
-		assert(to_old);
-
-		auto getIdx = [&old_indices](int i) -> int {
-			int idx = old_indices[i];
-			return idx < 0 ? -idx - 1 : idx;
-		};
-
-		int in_polygon_idx = 0;
-		for (int i = 0; i < old_indices.size(); ++i)
-		{
-			int idx = getIdx(i);
-			if (in_polygon_idx <= 2)
-			{
-				indices->push_back(idx);
-				to_old->push_back(i);
-			}
-			else
-			{
-				indices->push_back(old_indices[i - in_polygon_idx]);
-				to_old->push_back(i - in_polygon_idx);
-				indices->push_back(old_indices[i - 1]);
-				to_old->push_back(i - 1);
-				indices->push_back(idx);
-				to_old->push_back(i);
-			}
-			++in_polygon_idx;
-			if (old_indices[i] < 0)
-			{
-				in_polygon_idx = 0;
-			}
-		}
-	}
 };
 
 
@@ -2078,28 +2041,53 @@ static void add(GeometryImpl::NewVertex& vtx, int index)
 }
 
 
-static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element)
+static void triangulate(
+	const std::vector<int>& old_indices,
+	std::vector<int>* to_old_vertices,
+	std::vector<int>* to_old_indices)
 {
-	assert(element.first_property);
+	assert(to_old_vertices);
+	assert(to_old_indices);
 
-	const Element* vertices_element = findChild(element, "Vertices");
-	if (!vertices_element || !vertices_element->first_property)
+	auto getIdx = [&old_indices](int i) -> int {
+		int idx = old_indices[i];
+		return idx < 0 ? -idx - 1 : idx;
+	};
+
+	int in_polygon_idx = 0;
+	for (int i = 0; i < old_indices.size(); ++i)
 	{
-		return new GeometryImpl(scene, element);
+		int idx = getIdx(i);
+		if (in_polygon_idx <= 2)
+		{
+			to_old_vertices->push_back(idx);
+			to_old_indices->push_back(i);
+		}
+		else
+		{
+			to_old_vertices->push_back(old_indices[i - in_polygon_idx]);
+			to_old_indices->push_back(i - in_polygon_idx);
+			to_old_vertices->push_back(old_indices[i - 1]);
+			to_old_indices->push_back(i - 1);
+			to_old_vertices->push_back(idx);
+			to_old_indices->push_back(i);
+		}
+		++in_polygon_idx;
+		if (old_indices[i] < 0)
+		{
+			in_polygon_idx = 0;
+		}
 	}
+}
 
-	const Element* polys_element = findChild(element, "PolygonVertexIndex");
-	if (!polys_element || !polys_element->first_property) return Error("Indices missing");
 
-	std::unique_ptr<GeometryImpl> geom(new GeometryImpl(scene, element));
-
-	std::vector<Vec3> vertices;
-	if (!parseDoubleVecData(*vertices_element->first_property, &vertices)) return Error("Failed to parse vertices");
-	std::vector<int> original_indices;
-	if (!parseBinaryArray(*polys_element->first_property, &original_indices)) return Error("Failed to parse indices");
-
-	std::vector<int> to_old_indices;
-	geom->triangulate(original_indices, &geom->to_old_vertices, &to_old_indices);
+static void buildGeometryVertexData(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const std::vector<Vec3>& vertices,
+	const std::vector<int>& original_indices,
+	std::vector<int>& to_old_indices)
+{
+	triangulate(original_indices, &geom->to_old_vertices, &to_old_indices);
 	geom->vertices.resize(geom->to_old_vertices.size());
 
 	for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
@@ -2114,7 +2102,14 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 		int old = to_old_vertices[i];
 		add(geom->to_new_vertices[old], i);
 	}
+}
 
+
+static OptionalError<Object*> parseGeometryMaterials(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const Element& element,
+	const std::vector<int>& original_indices)
+{
 	const Element* layer_material_element = findChild(element, "LayerElementMaterial");
 	if (layer_material_element)
 	{
@@ -2151,7 +2146,16 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 			if (mapping_element->first_property->value != "AllSame") return Error("Mapping not supported");
 		}
 	}
+	return {nullptr};
+}
 
+
+static OptionalError<Object*> parseGeometryUVs(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const Element& element,
+	const std::vector<int>& original_indices,
+	const std::vector<int>& to_old_indices)
+{
 	const Element* layer_uv_element = findChild(element, "LayerElementUV");
 	while (layer_uv_element)
 	{
@@ -2179,7 +2183,16 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 			layer_uv_element = layer_uv_element->sibling;
 		} while (layer_uv_element && layer_uv_element->id != "LayerElementUV");
 	}
+	return {nullptr};
+}
 
+
+static OptionalError<Object*> parseGeometryTangents(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const Element& element,
+	const std::vector<int>& original_indices,
+	const std::vector<int>& to_old_indices)
+{
 	const Element* layer_tangent_element = findChild(element, "LayerElementTangents");
 	if (layer_tangent_element)
 	{
@@ -2202,7 +2215,16 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 			remap(&geom->tangents, to_old_indices);
 		}
 	}
+	return {nullptr};
+}
 
+
+static OptionalError<Object*> parseGeometryColors(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const Element& element,
+	const std::vector<int>& original_indices,
+	const std::vector<int>& to_old_indices)
+{
 	const Element* layer_color_element = findChild(element, "LayerElementColor");
 	if (layer_color_element)
 	{
@@ -2217,7 +2239,16 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 			remap(&geom->colors, to_old_indices);
 		}
 	}
+	return {nullptr};
+}
 
+
+static OptionalError<Object*> parseGeometryNormals(
+	const std::unique_ptr<GeometryImpl>& geom,
+	const Element& element,
+	const std::vector<int>& original_indices,
+	const std::vector<int>& to_old_indices)
+{
 	const Element* layer_normal_element = findChild(element, "LayerElementNormal");
 	if (layer_normal_element)
 	{
@@ -2232,6 +2263,47 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 			remap(&geom->normals, to_old_indices);
 		}
 	}
+	return {nullptr};
+}
+
+
+static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element)
+{
+	assert(element.first_property);
+
+	const Element* vertices_element = findChild(element, "Vertices");
+	if (!vertices_element || !vertices_element->first_property)
+	{
+		return new GeometryImpl(scene, element);
+	}
+
+	const Element* polys_element = findChild(element, "PolygonVertexIndex");
+	if (!polys_element || !polys_element->first_property) return Error("Indices missing");
+
+	std::unique_ptr<GeometryImpl> geom(new GeometryImpl(scene, element));
+
+	std::vector<Vec3> vertices;
+	if (!parseDoubleVecData(*vertices_element->first_property, &vertices)) return Error("Failed to parse vertices");
+	std::vector<int> original_indices;
+	if (!parseBinaryArray(*polys_element->first_property, &original_indices)) return Error("Failed to parse indices");
+
+	std::vector<int> to_old_indices;
+	buildGeometryVertexData(geom, vertices, to_old_indices, original_indices);
+
+	OptionalError<Object*> materialParsingError = parseGeometryMaterials(geom, element, original_indices);
+	if (materialParsingError.isError()) return materialParsingError;
+
+	OptionalError<Object*> uvParsingError = parseGeometryUVs(geom, element, original_indices, to_old_indices);
+	if (uvParsingError.isError()) return uvParsingError;
+
+	OptionalError<Object*> tangentsParsingError = parseGeometryTangents(geom, element, original_indices, to_old_indices);
+	if (tangentsParsingError.isError()) return tangentsParsingError;
+
+	OptionalError<Object*> colorsParsingError = parseGeometryColors(geom, element, original_indices, to_old_indices);
+	if (colorsParsingError.isError()) return colorsParsingError;
+
+	OptionalError<Object*> normalsParsingError = parseGeometryNormals(geom, element, original_indices, to_old_indices);
+	if (normalsParsingError.isError()) return normalsParsingError;
 
 	return geom.release();
 }
