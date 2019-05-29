@@ -228,7 +228,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		if (has_normals)
 		{
 			const ofbx::Vec3* normals = geom.getNormals();
-			int count = geom.getVertexCount();
+			int count = geom.getIndexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -241,7 +241,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		if (has_uvs)
 		{
 			const ofbx::Vec2* uvs = geom.getUVs();
-			int count = geom.getVertexCount();
+			int count = geom.getIndexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -251,9 +251,9 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		}
 
 		const int* faceIndices = geom.getFaceIndices();
-		int indexCount = geom.getIndexCount();
+		int index_count = geom.getIndexCount();
 		bool new_face = true;
-		for (int i = 0; i < indexCount; ++i)
+		for (int i = 0; i < index_count; ++i)
 		{
 			if (new_face)
 			{
@@ -266,7 +266,8 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 
 			if (has_uvs)
 			{
-				fprintf(fp, "/%d", idx);
+				int uv_idx = normals_offset + i + 1;
+				fprintf(fp, "/%d", uv_idx);
 			}
 			else
 			{
@@ -275,7 +276,8 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 
 			if (has_normals)
 			{
-				fprintf(fp, "/%d", idx);
+				int normal_idx = normals_offset + i + 1;
+				fprintf(fp, "/%d", normal_idx);
 			}
 			else
 			{
@@ -287,6 +289,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		}
 
 		indices_offset += vertex_count;
+		normals_offset += index_count;
 		++obj_idx;
 	}
 	fclose(fp);

@@ -443,7 +443,7 @@ protected:
 };
 
 
-IScene* load(const u8* data, int size);
+IScene* load(const u8* data, int size, bool triangulate = true);
 const char* getError();
 
 

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <ctype.h>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -2044,6 +2045,18 @@ static void add(GeometryImpl::NewVertex& vtx, int index)
 }
 
 
+int decodeIndex(int idx)
+{
+	return (idx < 0) ? (-idx - 1) : idx;
+}
+
+
+int codeIndex(int idx, bool last)
+{
+	return last ? (-idx - 1) : idx;
+}
+
+
 static void triangulate(
 	const std::vector<int>& old_indices,
 	std::vector<int>* to_old_vertices,
@@ -2054,7 +2067,7 @@ static void triangulate(
 
 	auto getIdx = [&old_indices](int i) -> int {
 		int idx = old_indices[i];
-		return idx < 0 ? -idx - 1 : idx;
+		return decodeIndex(idx);
 	};
 
 	int in_polygon_idx = 0;
@@ -2088,16 +2101,27 @@ static void buildGeometryVertexData(
 	const std::unique_ptr<GeometryImpl>& geom,
 	const std::vector<Vec3>& vertices,
 	const std::vector<int>& original_indices,
-	std::vector<int>& to_old_indices)
+	std::vector<int>& to_old_indices,
+	bool triangulationEnabled)
 {
-	triangulate(original_indices, &geom->to_old_vertices, &to_old_indices);
-	geom->vertices.resize(geom->to_old_vertices.size());
-	geom->indices.resize(geom->vertices.size());
-
-	for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
-	{
-		geom->vertices[i] = vertices[geom->to_old_vertices[i]];
-		geom->indices[i] = (i % 3 == 2) ? (-i - 1) : i;
+	if (triangulationEnabled) {
+		triangulate(original_indices, &geom->to_old_vertices, &to_old_indices);
+		geom->vertices.resize(geom->to_old_vertices.size());
+		geom->indices.resize(geom->vertices.size());
+		for (int i = 0, c = (int)geom->to_old_vertices.size(); i < c; ++i)
+		{
+			geom->vertices[i] = vertices[geom->to_old_vertices[i]];
+			geom->indices[i] = codeIndex(i, i % 3 == 2);
+		}
+	} else {
+		geom->vertices = vertices;
+		geom->to_old_vertices.resize(original_indices.size());
+		for (size_t i = 0; i < original_indices.size(); ++i) {
+			geom->to_old_vertices[i] = decodeIndex(original_indices[i]);
+		}
+		geom->indices = original_indices;
+		to_old_indices.resize(original_indices.size());
+		iota(to_old_indices.begin(), to_old_indices.end(), 0);
 	}
 
 	geom->to_new_vertices.resize(vertices.size()); // some vertices can be unused, so this isn't necessarily the same size as to_old_vertices.
@@ -2272,7 +2296,7 @@ static OptionalError<Object*> parseGeometryNormals(
 }
 
 
-static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element)
+static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element, bool triangulate)
 {
 	assert(element.first_property);
 
@@ -2293,7 +2317,7 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	if (!parseBinaryArray(*polys_element->first_property, &original_indices)) return Error("Failed to parse indices");
 
 	std::vector<int> to_old_indices;
-	buildGeometryVertexData(geom, vertices, original_indices, to_old_indices);
+	buildGeometryVertexData(geom, vertices, original_indices, to_old_indices, triangulate);
 
 	OptionalError<Object*> materialParsingError = parseGeometryMaterials(geom, element, original_indices);
 	if (materialParsingError.isError()) return materialParsingError;
@@ -2517,7 +2541,7 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 }
 
 
-static bool parseObjects(const Element& root, Scene* scene)
+static bool parseObjects(const Element& root, Scene* scene, bool triangulate)
 {
 	const Element* objs = findChild(root, "Objects");
 	if (!objs) return true;
@@ -2552,7 +2576,7 @@ static bool parseObjects(const Element& root, Scene* scene)
 			while (last_prop->next) last_prop = last_prop->next;
 			if (last_prop && last_prop->value == "Mesh")
 			{
-				obj = parseGeometry(*scene, *iter.second.element);
+				obj = parseGeometry(*scene, *iter.second.element, triangulate);
 			}
 		}
 		else if (iter.second.element->id == "Material")
@@ -3000,7 +3024,7 @@ Object* Object::getParent() const
 }
 
 
-IScene* load(const u8* data, int size)
+IScene* load(const u8* data, int size, bool triangulate)
 {
 	std::unique_ptr<Scene> scene(new Scene());
 	scene->m_data.resize(size);
@@ -3025,7 +3049,7 @@ IScene* load(const u8* data, int size)
 	// if (parseTemplates(*root.getValue()).isError()) return nullptr;
 	if (!parseConnections(*root.getValue(), scene.get())) return nullptr;
 	if (!parseTakes(scene.get())) return nullptr;
-	if (!parseObjects(*root.getValue(), scene.get())) return nullptr;
+	if (!parseObjects(*root.getValue(), scene.get(), triangulate)) return nullptr;
 	parseGlobalSettings(*root.getValue(), scene.get());
 
 	return scene.release();
