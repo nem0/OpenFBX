@@ -263,7 +263,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			int vertex_idx = indices_offset + idx;
 			fprintf(fp, "%d", vertex_idx);
 
-			if (has_normals)
+			if (has_uvs)
 			{
 				fprintf(fp, "/%d", idx);
 			}
@@ -272,7 +272,7 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 				fprintf(fp, "/");
 			}
 
-			if (has_uvs)
+			if (has_normals)
 			{
 				fprintf(fp, "/%d", idx);
 			}
