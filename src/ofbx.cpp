@@ -1910,6 +1910,18 @@ static bool parseVertexData(const Element& element,
 }
 
 
+static int decodeIndex(int idx)
+{
+	return (idx < 0) ? (-idx - 1) : idx;
+}
+
+
+static int codeIndex(int idx, bool last)
+{
+	return last ? (-idx - 1) : idx;
+}
+
+
 template <typename T>
 static void splat(std::vector<T>* out,
 	GeometryImpl::VertexDataMapping mapping,
@@ -1951,8 +1963,7 @@ static void splat(std::vector<T>* out,
 		int data_size = (int)data.size();
 		for (int i = 0, c = (int)original_indices.size(); i < c; ++i)
 		{
-			int idx = original_indices[i];
-			if (idx < 0) idx = -idx - 1;
+			int idx = decodeIndex(original_indices[i]);
 			if (idx < data_size)
 				(*out)[i] = data[idx];
 			else
@@ -2042,18 +2053,6 @@ static void add(GeometryImpl::NewVertex& vtx, int index)
 		vtx.next = new GeometryImpl::NewVertex;
 		vtx.next->index = index;
 	}
-}
-
-
-int decodeIndex(int idx)
-{
-	return (idx < 0) ? (-idx - 1) : idx;
-}
-
-
-int codeIndex(int idx, bool last)
-{
-	return last ? (-idx - 1) : idx;
 }
 
 
