@@ -1038,9 +1038,11 @@ struct MaterialImpl : Material
 
 	const Texture* getTexture(Texture::TextureType type) const override { return textures[type]; }
 	Color getDiffuseColor() const override { return diffuse_color; }
+	Color getSpecularColor() const override { return specular_color; }
 
 	const Texture* textures[Texture::TextureType::COUNT];
 	Color diffuse_color;
+	Color specular_color;
 };
 
 
@@ -1627,6 +1629,12 @@ static OptionalError<Object*> parseMaterial(const Scene& scene, const Element& e
 				material->diffuse_color.r = (float)prop->getProperty(4)->getValue().toDouble();
 				material->diffuse_color.g = (float)prop->getProperty(5)->getValue().toDouble();
 				material->diffuse_color.b = (float)prop->getProperty(6)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "SpecularColor")
+			{
+				material->specular_color.r = (float)prop->getProperty(4)->getValue().toDouble();
+				material->specular_color.g = (float)prop->getProperty(5)->getValue().toDouble();
+				material->specular_color.b = (float)prop->getProperty(6)->getValue().toDouble();
 			}
 		}
 		prop = prop->sibling;
@@ -2728,6 +2736,8 @@ static bool parseObjects(const Element& root, Scene* scene, bool triangulate)
 						type = Texture::NORMAL;
 					else if (con.property == "DiffuseColor")
 						type = Texture::DIFFUSE;
+					else if (con.property == "SpecularColor")
+						type = Texture::SPECULAR;
 					if (type == Texture::COUNT) break;
 
 					if (mat->textures[type])

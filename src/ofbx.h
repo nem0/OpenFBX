@@ -209,6 +209,7 @@ struct Texture : Object
 	{
 		DIFFUSE,
 		NORMAL,
+		SPECULAR,
 
 		COUNT
 	};
@@ -228,6 +229,7 @@ struct Material : Object
 	Material(const Scene& _scene, const IElement& _element);
 
 	virtual Color getDiffuseColor() const = 0;
+	virtual Color getSpecularColor() const = 0;
 	virtual const Texture* getTexture(Texture::TextureType type) const = 0;
 };
 
