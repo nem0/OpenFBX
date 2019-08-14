@@ -2566,8 +2566,8 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 			}
 			break;
 		}
-	}
 }
+	}
 
 
 static bool parseObjects(const Element& root, Scene* scene, u64 flags)

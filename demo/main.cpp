@@ -577,7 +577,7 @@ bool init()
 	fseek(fp, 0, SEEK_SET);
 	auto* content = new ofbx::u8[file_size];
 	fread(content, 1, file_size, fp);
-	g_scene = ofbx::load((ofbx::u8*)content, file_size);
+	g_scene = ofbx::load((ofbx::u8*)content, file_size, (ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
 	saveAsOBJ(*g_scene, "out.obj");
 	delete[] content;
 	fclose(fp);
