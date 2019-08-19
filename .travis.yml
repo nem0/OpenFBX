@@ -1,0 +1,22 @@
+dist: xenial
+sudo: false
+language: cpp
+
+env:
+  matrix:
+    - BUILD_TYPE=Debug
+    - BUILD_TYPE=Release
+
+compiler:
+  - clang
+  - gcc
+
+before_script:
+  - cd ci
+  - mkdir build-${BUILD_TYPE}
+  - cd build-${BUILD_TYPE}
+  - cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+
+script:
+  - $CC_FOR_BUILD -v && $CXX_FOR_BUILD -v && cmake --version
+  - make -j2
