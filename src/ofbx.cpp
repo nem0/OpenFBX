@@ -304,7 +304,7 @@ bool DataView::operator==(const char* rhs) const
 	const char* c2 = (const char*)begin;
 	while (*c && c2 != (const char*)end)
 	{
-		if (*c != *c2) return 0;
+		if (*c != *c2) return false;
 		++c;
 		++c2;
 	}
@@ -319,7 +319,7 @@ template <typename T> static bool parseBinaryArray(const Property& property, std
 
 struct Property : IElementProperty
 {
-	~Property() { delete next; }
+	~Property() override { delete next; }
 	Type getType() const override { return (Type)type; }
 	IElementProperty* getNext() const override { return next; }
 	DataView getValue() const override { return value; }
@@ -343,8 +343,8 @@ struct Property : IElementProperty
 
 	bool getValues(int* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
 
-	int count;
-	u8 type;
+	int count = 0;
+	u8 type = INTEGER;
 	DataView value;
 	Property* next = nullptr;
 };
@@ -427,10 +427,10 @@ static Vec3 resolveVec3Property(const Object& object, const char* name, const Ve
 
 
 Object::Object(const Scene& _scene, const IElement& _element)
-	: scene(_scene)
-	, element(_element)
-	, is_node(false)
+	: element(_element)
 	, node_attribute(nullptr)
+	, is_node(false)
+	, scene(_scene)
 {
 	auto& e = (Element&)_element;
 	if (e.first_property && e.first_property->next)
@@ -599,8 +599,6 @@ static OptionalError<Element*> readElement(Cursor* cursor, u32 version)
 	OptionalError<u64> prop_length = readElementOffset(cursor, version);
 	if (prop_count.isError() || prop_length.isError()) return Error();
 
-	const char* sbeg = 0;
-	const char* send = 0;
 	OptionalError<DataView> id = readShortString(cursor);
 	if (id.isError()) return Error();
 
@@ -1375,9 +1373,9 @@ struct Scene : IScene
 			OBJECT_PROPERTY
 		};
 
-		Type type;
-		u64 from;
-		u64 to;
+		Type type = OBJECT_OBJECT;
+		u64 from = 0;
+		u64 to = 0;
 		DataView property;
 	};
 
@@ -1432,7 +1430,7 @@ struct Scene : IScene
 	void destroy() override { delete this; }
 
 
-	~Scene()
+	~Scene() override
 	{
 		for (auto iter : m_object_map)
 		{
