@@ -569,7 +569,7 @@ bool init()
 	ShowWindow(g_hWnd, SW_SHOW);
 	initImGUI();
 
-	FILE* fp = fopen("c.fbx", "rb");
+	FILE* fp = fopen("d.fbx", "rb");
 	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
@@ -578,7 +578,12 @@ bool init()
 	auto* content = new ofbx::u8[file_size];
 	fread(content, 1, file_size, fp);
 	g_scene = ofbx::load((ofbx::u8*)content, file_size, (ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
-	saveAsOBJ(*g_scene, "out.obj");
+	if(!g_scene) {
+        OutputDebugString(ofbx::getError());
+    }
+    else {
+        saveAsOBJ(*g_scene, "out.obj");
+    }
 	delete[] content;
 	fclose(fp);
 

@@ -759,7 +759,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor)
 		return prop.release();
 	}
 
-	if (*cursor->current == 'T' || *cursor->current == 'Y')
+	if (*cursor->current == 'T' || *cursor->current == 'Y' || *cursor->current == 'W')
 	{
 		// WTF is this
 		prop->type = *cursor->current;
