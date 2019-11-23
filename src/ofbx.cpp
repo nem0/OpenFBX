@@ -642,6 +642,7 @@ static OptionalError<Element*> readElement(Cursor* cursor, u32 version)
 		}
 
 		*link = child.getValue();
+        if (child.getValue() == 0) break;
 		link = &(*link)->sibling;
 	}
 
