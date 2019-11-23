@@ -120,7 +120,7 @@ struct IElementProperty
 
 struct IElement
 {
-	virtual ~IElement() = default;
+    virtual ~IElement() = default;
 	virtual IElement* getFirstChild() const = 0;
 	virtual IElement* getSibling() const = 0;
 	virtual DataView getID() const = 0;
@@ -362,6 +362,7 @@ struct AnimationCurveNode : Object
 
 	AnimationCurveNode(const Scene& _scene, const IElement& _element);
 
+	virtual const AnimationCurve* getCurve(int idx) const = 0; 
 	virtual Vec3 getNodeLocalTransform(double time) const = 0;
 	virtual const Object* getBone() const = 0;
 };
@@ -381,17 +382,17 @@ struct TakeInfo
 // Specifies which canonical axis represents up in the system (typically Y or Z).
 enum UpVector
 {
-	UpVector_AxisX = 1,
-	UpVector_AxisY = 2,
-	UpVector_AxisZ = 3
+	UpVector_AxisX = 0,
+	UpVector_AxisY = 1,
+	UpVector_AxisZ = 2
 };
 
 
 // Vector with origin at the screen pointing toward the camera.
 enum FrontVector
 {
-	FrontVector_ParityEven = 1,
-	FrontVector_ParityOdd = 2
+	FrontVector_ParityEven = 0,
+	FrontVector_ParityOdd = 1
 };
 
 
@@ -465,6 +466,8 @@ protected:
 
 IScene* load(const u8* data, int size, u64 flags);
 const char* getError();
+double fbxTimeToSeconds(i64 value);
+i64 secondsToFbxTime(double value);
 
 
 } // namespace ofbx

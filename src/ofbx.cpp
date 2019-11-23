@@ -187,13 +187,13 @@ static Matrix getRotationMatrix(const Vec3& euler, RotationOrder order)
 }
 
 
-static double fbxTimeToSeconds(i64 value)
+double fbxTimeToSeconds(i64 value)
 {
 	return double(value) / 46186158000L;
 }
 
 
-static i64 secondsToFbxTime(double value)
+i64 secondsToFbxTime(double value)
 {
 	return i64(value * 46186158000L);
 }
@@ -319,7 +319,6 @@ template <typename T> static bool parseBinaryArray(const Property& property, std
 
 struct Property : IElementProperty
 {
-	~Property() override { delete next; }
 	Type getType() const override { return (Type)type; }
 	IElementProperty* getNext() const override { return next; }
 	DataView getValue() const override { return value; }
@@ -427,10 +426,10 @@ static Vec3 resolveVec3Property(const Object& object, const char* name, const Ve
 
 
 Object::Object(const Scene& _scene, const IElement& _element)
-	: element(_element)
-	, node_attribute(nullptr)
+	: scene(_scene)
+	, element(_element)
 	, is_node(false)
-	, scene(_scene)
+	, node_attribute(nullptr)
 {
 	auto& e = (Element&)_element;
 	if (e.first_property && e.first_property->next)
@@ -566,7 +565,12 @@ static void deleteElement(Element* el)
 	do
 	{
 		Element* next = iter->sibling;
-		delete iter->first_property;
+		Property* prop = iter->first_property;
+		while (prop) {
+			Property* tmp = prop->next;
+			delete prop;
+			prop = tmp;
+		}
 		deleteElement(iter->child);
 		delete iter;
 		iter = next;
@@ -810,10 +814,10 @@ static OptionalError<Element*> readTextElement(Cursor* cursor)
 {
 	DataView id = readTextToken(cursor);
 	if (cursor->current == cursor->end) return Error("Unexpected end of file");
-	if (*cursor->current != ':') return Error("Unexpected end of file");
+	if (*cursor->current != ':') return Error("Unexpected character");
 	++cursor->current;
 
-	skipWhitespaces(cursor);
+	skipInsignificantWhitespaces(cursor);
 	if (cursor->current == cursor->end) return Error("Unexpected end of file");
 
 	Element* element = new Element;
@@ -1471,9 +1475,9 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 		: AnimationCurveNode(_scene, _element)
 	{
 		default_values[0] = default_values[1] = default_values[2] =  0;
-		ofbx::Element* dx = static_cast<ofbx::Element*>(resolveProperty(*this, "d|X"));
-		ofbx::Element* dy = static_cast<ofbx::Element*>(resolveProperty(*this, "d|Y"));
-		ofbx::Element* dz = static_cast<ofbx::Element*>(resolveProperty(*this, "d|Z"));
+		Element* dx = static_cast<Element*>(resolveProperty(*this, "d|X"));
+		Element* dy = static_cast<Element*>(resolveProperty(*this, "d|Y"));
+		Element* dz = static_cast<Element*>(resolveProperty(*this, "d|Z"));
 
 		if (dx) {
 			Property* x = (Property*)dx->getProperty(4);
@@ -1493,6 +1497,12 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 	const Object* getBone() const override
 	{
 		return bone;
+	}
+
+
+	const AnimationCurve* getCurve(int idx) const override {
+		assert(idx >= 0 && idx < 3);
+		return curves[idx].curve;
 	}
 
 
@@ -2025,10 +2035,8 @@ static void splat(std::vector<T>* out,
 			int data_size = (int)data.size();
 			for (int i = 0, c = (int)indices.size(); i < c; ++i)
 			{
-				int index = indices[i];
-
-				if ((index < data_size) && (index >= 0))
-					(*out)[i] = data[index];
+				if (indices[i] < data_size)
+					(*out)[i] = data[indices[i]];
 				else
 					(*out)[i] = T();
 			}
@@ -2046,7 +2054,7 @@ static void splat(std::vector<T>* out,
 		for (int i = 0, c = (int)original_indices.size(); i < c; ++i)
 		{
 			int idx = decodeIndex(original_indices[i]);
-			if ((idx < data_size) && (idx >= 0))
+			if (idx < data_size)
 				(*out)[i] = data[idx];
 			else
 				(*out)[i] = T();
@@ -2575,35 +2583,35 @@ static float getFramerateFromTimeMode(FrameRate time_mode, float custom_frame_ra
 
 static void parseGlobalSettings(const Element& root, Scene* scene)
 {
-	for (ofbx::Element* settings = root.child; settings; settings = settings->sibling)
+	for (Element* settings = root.child; settings; settings = settings->sibling)
 	{
 		if (settings->id == "GlobalSettings")
 		{
-			for (ofbx::Element* props70 = settings->child; props70; props70 = props70->sibling)
+			for (Element* props70 = settings->child; props70; props70 = props70->sibling)
 			{
 				if (props70->id == "Properties70")
 				{
-					for (ofbx::Element* node = props70->child; node; node = node->sibling)
+					for (Element* node = props70->child; node; node = node->sibling)
 					{
 						if (!node->first_property)
 							continue;
 
 						#define get_property(name, field, type, getter) if(node->first_property->value == name) \
 						{ \
-							ofbx::IElementProperty* prop = node->getProperty(4); \
+							IElementProperty* prop = node->getProperty(4); \
 							if (prop) \
 							{ \
-								ofbx::DataView value = prop->getValue(); \
+								DataView value = prop->getValue(); \
 								scene->m_settings.field = (type)value.getter(); \
 							} \
 						}
 
 						#define get_time_property(name, field, type, getter) if(node->first_property->value == name) \
 						{ \
-							ofbx::IElementProperty* prop = node->getProperty(4); \
+							IElementProperty* prop = node->getProperty(4); \
 							if (prop) \
 							{ \
-								ofbx::DataView value = prop->getValue(); \
+								DataView value = prop->getValue(); \
 								scene->m_settings.field = fbxTimeToSeconds((type)value.getter()); \
 							} \
 						}
@@ -3119,7 +3127,7 @@ Object* Object::getParent() const
 	Object* parent = nullptr;
 	for (auto& connection : scene.m_connections)
 	{
-		if (connection.from == id)
+		if (connection.from == id && connection.from != connection.to)
 		{
 			Object* obj = scene.m_object_map.find(connection.to)->second.object;
 			if (obj && obj->is_node)
@@ -3139,15 +3147,23 @@ IScene* load(const u8* data, int size, u64 flags)
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
 	u32 version;
-	OptionalError<Element*> root = tokenize(&scene->m_data[0], size, version);
-	if (version < 6200)
-	{
-		Error::s_message = "Unsupported FBX file format version. Minimum supported version is 6.2";
-		return nullptr;
+	
+	const bool is_binary = size >= 18 && strncmp((const char*)data, "Kaydara FBX Binary", 18) == 0;
+	OptionalError<Element*> root(nullptr);
+	if (is_binary) {
+		root = tokenize(&scene->m_data[0], size, version);
+		if (version < 6200)
+		{
+			Error::s_message = "Unsupported FBX file format version. Minimum supported version is 6.2";
+			return nullptr;
+		}
+		if (root.isError())
+		{
+			Error::s_message = "";
+			if (root.isError()) return nullptr;
+		}
 	}
-	if (root.isError())
-	{
-		Error::s_message = "";
+	else {
 		root = tokenizeText(&scene->m_data[0], size);
 		if (root.isError()) return nullptr;
 	}
