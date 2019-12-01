@@ -138,6 +138,19 @@ void showGUI(ofbx::IElementProperty& prop)
 }
 
 
+static void showCurveGUI(const ofbx::Object& object) {
+    const ofbx::AnimationCurve& curve = static_cast<const ofbx::AnimationCurve&>(object);
+    
+    const int c = curve.getKeyCount();
+    for (int i = 0; i < c; ++i) {
+        const float t = ofbx::fbxTimeToSeconds(curve.getKeyTime()[i]);
+        const float v = curve.getKeyValue()[i];
+        ImGui::Text("%fs: %f ", t, v);
+        
+    }
+}
+
+
 void showObjectGUI(const ofbx::Object& object)
 {
 	const char* label;
@@ -172,6 +185,10 @@ void showObjectGUI(const ofbx::Object& object)
 			showObjectGUI(*child);
 			++i;
 		}
+        if(object.getType() == ofbx::Object::Type::ANIMATION_CURVE) {
+            showCurveGUI(object);
+        }
+
 		ImGui::TreePop();
 	}
 	else
