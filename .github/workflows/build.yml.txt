@@ -1,0 +1,19 @@
+name: build
+on: [push]
+jobs:
+    windows:
+        runs-on: windows-2019
+        steps:
+            - uses: actions/checkout@v1
+              with:
+                fetch-depth: 1
+            - name: make project
+              working-directory: projects
+              run: |
+                ./genie.exe vs2019
+            - name: build engine
+              working-directory: projects
+              shell: cmd
+              run: |
+                "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin/MSBuild.exe" tmp/vs2019/OpenFBX.sln /p:Configuration=RelWithDebInfo
+    
