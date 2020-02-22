@@ -1,3 +1,4 @@
+![build](https://github.com/nem0/OpenFBX/workflows/build/badge.svg)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nem0/LumixEngine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
 
