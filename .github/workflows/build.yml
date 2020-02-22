@@ -25,7 +25,7 @@ jobs:
             - name: make project
               working-directory: projects
               run: |
-                ./genie.exe --gcc=linux-gcc-5 gmake
+                ./genie --gcc=linux-gcc-5 gmake
             - name: build engine
               working-directory: projects/tmp/gmake
               shell: bash
