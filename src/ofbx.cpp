@@ -2036,8 +2036,10 @@ static void splat(std::vector<T>* out,
 			int data_size = (int)data.size();
 			for (int i = 0, c = (int)indices.size(); i < c; ++i)
 			{
-				if (indices[i] < data_size)
-					(*out)[i] = data[indices[i]];
+				int index = indices[i];
+
+				if ((index < data_size) && (index >= 0))
+					(*out)[i] = data[index];
 				else
 					(*out)[i] = T();
 			}
@@ -2055,7 +2057,7 @@ static void splat(std::vector<T>* out,
 		for (int i = 0, c = (int)original_indices.size(); i < c; ++i)
 		{
 			int idx = decodeIndex(original_indices[i]);
-			if (idx < data_size)
+			if ((idx < data_size) && (idx >= 0))
 				(*out)[i] = data[idx];
 			else
 				(*out)[i] = T();
