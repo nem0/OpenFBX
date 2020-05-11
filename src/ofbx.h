@@ -423,17 +423,17 @@ struct TakeInfo
 // Specifies which canonical axis represents up in the system (typically Y or Z).
 enum UpVector
 {
-	UpVector_AxisX = 1,
-	UpVector_AxisY = 2,
-	UpVector_AxisZ = 3
+	UpVector_AxisX = 0,
+	UpVector_AxisY = 1,
+	UpVector_AxisZ = 2
 };
 
 
 // Vector with origin at the screen pointing toward the camera.
 enum FrontVector
 {
-	FrontVector_ParityEven = 1,
-	FrontVector_ParityOdd = 2
+	FrontVector_ParityEven = 0,
+	FrontVector_ParityOdd = 1
 };
 
 
@@ -500,6 +500,7 @@ struct IScene
 	virtual const Object* const* getAllObjects() const = 0;
 	virtual int getAllObjectCount() const = 0;
 
+protected:
 	virtual ~IScene() {}
 };
 

@@ -1169,7 +1169,7 @@ struct ShapeImpl : Shape
 	}
 
 
-    bool postprocess(GeometryImpl* geom);
+	bool postprocess(GeometryImpl* geom);
 
 
 	Type getType() const override { return Type::SHAPE; }
@@ -1350,13 +1350,13 @@ struct BlendShapeChannelImpl : BlendShapeChannel
 	{
 	}
 
-    double getDeformPercent() const override { return deformPercent; }
+	double getDeformPercent() const override { return deformPercent; }
 	int getShapeCount() const override { return (int)shapes.size(); }
 	const Shape* getShape(int idx) const override { return shapes[idx]; }
 
 	Type getType() const override { return Type::BLEND_SHAPE_CHANNEL; }
 
-    bool postprocess()
+	bool postprocess()
 	{
 		assert(blendShape);
 
@@ -1375,20 +1375,20 @@ struct BlendShapeChannelImpl : BlendShapeChannel
 			if (!parseBinaryArray(*full_weights_el->first_property, &fullWeights)) return false;
 		}
 
-        for (int i = 0; i < shapes.size(); i++)
-        {
-            auto shape = (ShapeImpl*)shapes[i];
-            if (!shape->postprocess(geom)) return false;
-        }
+		for (int i = 0; i < shapes.size(); i++)
+		{
+			auto shape = (ShapeImpl*)shapes[i];
+			if (!shape->postprocess(geom)) return false;
+		}
 
 		return true;
 	}
 
 
 	BlendShape* blendShape = nullptr;
-    double deformPercent = 0;
+	double deformPercent = 0;
 	std::vector<double> fullWeights;
-    std::vector<Shape*> shapes;
+	std::vector<Shape*> shapes;
 };
 
 
@@ -2566,13 +2566,13 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 bool ShapeImpl::postprocess(GeometryImpl* geom)
 {
 	assert(geom);
-    assert(element.first_property);
+	assert(element.first_property);
 
 	const Element* vertices_element = findChild((const Element&)element, "Vertices");
 	const Element* normals_element = findChild((const Element&)element, "Normals");
 	const Element* indexes_element = findChild((const Element&)element, "Indexes");
 	if (!vertices_element || !vertices_element->first_property ||
-	    !indexes_element || !indexes_element->first_property)
+		!indexes_element || !indexes_element->first_property)
 	{
 		return false;
 	}
@@ -2582,12 +2582,12 @@ bool ShapeImpl::postprocess(GeometryImpl* geom)
 	std::vector<Vec3> old_normals;
 	if (!parseDoubleVecData(*normals_element->first_property, &old_normals)) return true;
 	std::vector<int> old_indices;
-    if (!parseBinaryArray(*indexes_element->first_property, &old_indices)) return true;
+	if (!parseBinaryArray(*indexes_element->first_property, &old_indices)) return true;
 
 	if (old_vertices.size() != old_indices.size() || old_normals.size() != old_indices.size()) return false;
 
-    vertices = geom->vertices;
-    normals = geom->normals;
+	vertices = geom->vertices;
+	normals = geom->normals;
 
 	Vec3* vr = &old_vertices[0];
 	Vec3* nr = &old_normals[0];
@@ -2599,8 +2599,8 @@ bool ShapeImpl::postprocess(GeometryImpl* geom)
 		if (n->index == -1) continue; // skip vertices which aren't indexed.
 		while (n)
 		{
-            vertices[n->index] = vertices[n->index] + vr[i];
-            normals[n->index] = vertices[n->index] + nr[i];
+			vertices[n->index] = vertices[n->index] + vr[i];
+			normals[n->index] = vertices[n->index] + nr[i];
 			n = n->next;
 		}
 	}
@@ -3034,7 +3034,7 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 			case Object::Type::BLEND_SHAPE_CHANNEL:
 			{
 				BlendShapeChannelImpl* blendShapeChannel = (BlendShapeChannelImpl*)parent;
-                if (child->getType() == Object::Type::SHAPE)
+				if (child->getType() == Object::Type::SHAPE)
 				{
 					ShapeImpl* shape = (ShapeImpl*)child;
 					blendShapeChannel->shapes.push_back(shape);
