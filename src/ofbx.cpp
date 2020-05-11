@@ -315,6 +315,7 @@ bool DataView::operator==(const char* rhs) const
 struct Property;
 template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
+static bool parseDouble(Property& property, double* out);
 
 
 struct Property : IElementProperty
@@ -1124,6 +1125,7 @@ struct GeometryImpl : Geometry
 	std::vector<int> materials;
 
 	const Skin* skin = nullptr;
+	const BlendShape* blendShape = nullptr;
 
 	std::vector<int> indices;
 	std::vector<int> to_old_vertices;
@@ -1145,7 +1147,35 @@ struct GeometryImpl : Geometry
 	const Vec4* getColors() const override { return colors.empty() ? nullptr : &colors[0]; }
 	const Vec3* getTangents() const override { return tangents.empty() ? nullptr : &tangents[0]; }
 	const Skin* getSkin() const override { return skin; }
+	const BlendShape* getBlendShape() const override { return blendShape; }
 	const int* getMaterials() const override { return materials.empty() ? nullptr : &materials[0]; }
+};
+
+
+Shape::Shape(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{
+}
+
+
+struct ShapeImpl : Shape
+{
+	std::vector<Vec3> vertices;
+	std::vector<Vec3> normals;
+
+	ShapeImpl(const Scene& _scene, const IElement& _element)
+		: Shape(_scene, _element)
+	{
+	}
+
+
+    bool postprocess(GeometryImpl* geom);
+
+
+	Type getType() const override { return Type::SHAPE; }
+	int getVertexCount() const override { return (int)vertices.size(); }
+	const Vec3* getVertices() const override { return &vertices[0]; }
+	const Vec3* getNormals() const override { return normals.empty() ? nullptr : &normals[0]; }
 };
 
 
@@ -1304,6 +1334,83 @@ struct SkinImpl : Skin
 	Type getType() const override { return Type::SKIN; }
 
 	std::vector<Cluster*> clusters;
+};
+
+
+BlendShapeChannel::BlendShapeChannel(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{
+}
+
+
+struct BlendShapeChannelImpl : BlendShapeChannel
+{
+	BlendShapeChannelImpl(const Scene& _scene, const IElement& _element)
+		: BlendShapeChannel(_scene, _element)
+	{
+	}
+
+    double getDeformPercent() const override { return deformPercent; }
+	int getShapeCount() const override { return (int)shapes.size(); }
+	const Shape* getShape(int idx) const override { return shapes[idx]; }
+
+	Type getType() const override { return Type::BLEND_SHAPE_CHANNEL; }
+
+    bool postprocess()
+	{
+		assert(blendShape);
+
+		GeometryImpl* geom = (GeometryImpl*)blendShape->resolveObjectLinkReverse(Object::Type::GEOMETRY);
+		if (!geom) return false;
+
+		const Element* deform_percent_el = findChild((const Element&)element, "DeformPercent");
+		if (deform_percent_el && deform_percent_el->first_property)
+		{
+			if (!parseDouble(*deform_percent_el->first_property, &deformPercent)) return false;
+		}
+
+		const Element* full_weights_el = findChild((const Element&)element, "FullWeights");
+		if (full_weights_el && full_weights_el->first_property)
+		{
+			if (!parseBinaryArray(*full_weights_el->first_property, &fullWeights)) return false;
+		}
+
+        for (int i = 0; i < shapes.size(); i++)
+        {
+            auto shape = (ShapeImpl*)shapes[i];
+            if (!shape->postprocess(geom)) return false;
+        }
+
+		return true;
+	}
+
+
+	BlendShape* blendShape = nullptr;
+    double deformPercent = 0;
+	std::vector<double> fullWeights;
+    std::vector<Shape*> shapes;
+};
+
+
+BlendShape::BlendShape(const Scene& _scene, const IElement& _element)
+	: Object(_scene, _element)
+{
+}
+
+
+struct BlendShapeImpl : BlendShape
+{
+	BlendShapeImpl(const Scene& _scene, const IElement& _element)
+		: BlendShape(_scene, _element)
+	{
+	}
+
+	int getBlendShapeChannelCount() const override { return (int)blendShapeChannels.size(); }
+	const BlendShapeChannel* getBlendShapeChannel(int idx) const override { return blendShapeChannels[idx]; }
+
+	Type getType() const override { return Type::BLEND_SHAPE; }
+
+	std::vector<BlendShapeChannel*> blendShapeChannels;
 };
 
 
@@ -1946,6 +2053,31 @@ template <typename T> static bool parseDoubleVecData(Property& property, std::ve
 }
 
 
+static bool parseDouble(Property& property, double* out)
+{
+	assert(out);
+    if (property.value.is_binary)
+	{
+		int elem_size = 1;
+		switch (property.type)
+		{
+			case 'D': elem_size = 8; break;
+			case 'F': elem_size = 4; break;
+			default: return false;
+		}
+		const u8* data = property.value.begin;
+		if (data > property.value.end) return false;
+		memcpy(out, data, elem_size);
+		return true;
+	}
+    else
+    {
+        fromString<double>((const char*)property.value.begin, (const char*)property.value.end, out);
+        return true;
+    }
+}
+
+
 template <typename T>
 static bool parseVertexData(const Element& element,
 	const char* name,
@@ -2079,10 +2211,7 @@ template <typename T> static void remap(std::vector<T>* out, const std::vector<i
 	int old_size = (int)old.size();
 	for (int i = 0, c = (int)map.size(); i < c; ++i)
 	{
-		if (map[i] < old_size)
-			out->push_back(old[map[i]]);
-		else
-			out->push_back(T());
+		out->push_back(map[i] < old_size ? old[map[i]] : T());
 	}
 }
 
@@ -2434,6 +2563,52 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 }
 
 
+bool ShapeImpl::postprocess(GeometryImpl* geom)
+{
+	assert(geom);
+    assert(element.first_property);
+
+	const Element* vertices_element = findChild((const Element&)element, "Vertices");
+	const Element* normals_element = findChild((const Element&)element, "Normals");
+	const Element* indexes_element = findChild((const Element&)element, "Indexes");
+	if (!vertices_element || !vertices_element->first_property ||
+	    !indexes_element || !indexes_element->first_property)
+	{
+		return false;
+	}
+   
+	std::vector<Vec3> old_vertices;
+	if (!parseDoubleVecData(*vertices_element->first_property, &old_vertices)) return true;
+	std::vector<Vec3> old_normals;
+	if (!parseDoubleVecData(*normals_element->first_property, &old_normals)) return true;
+	std::vector<int> old_indices;
+    if (!parseBinaryArray(*indexes_element->first_property, &old_indices)) return true;
+
+	if (old_vertices.size() != old_indices.size() || old_normals.size() != old_indices.size()) return false;
+
+    vertices = geom->vertices;
+    normals = geom->normals;
+
+	Vec3* vr = &old_vertices[0];
+	Vec3* nr = &old_normals[0];
+	int* ir = &old_indices[0];
+	for (int i = 0, c = (int)old_indices.size(); i < c; ++i)
+	{
+		int old_idx = ir[i];
+		GeometryImpl::NewVertex* n = &geom->to_new_vertices[old_idx];
+		if (n->index == -1) continue; // skip vertices which aren't indexed.
+		while (n)
+		{
+            vertices[n->index] = vertices[n->index] + vr[i];
+            normals[n->index] = vertices[n->index] + nr[i];
+			n = n->next;
+		}
+	}
+
+	return true;
+}
+
+
 static bool isString(const Property* prop)
 {
 	if (!prop) return false;
@@ -2651,6 +2826,7 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 {
 	const bool triangulate = (flags & (u64)LoadFlags::TRIANGULATE) != 0;
 	const bool ignore_geometry = (flags & (u64)LoadFlags::IGNORE_GEOMETRY) != 0;
+	const bool ignore_blend_shapes = (flags & (u64)LoadFlags::IGNORE_BLEND_SHAPES) != 0;
 	const Element* objs = findChild(root, "Objects");
 	if (!objs) return true;
 
@@ -2685,6 +2861,10 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 			if (last_prop && last_prop->value == "Mesh" && !ignore_geometry)
 			{
 				obj = parseGeometry(*scene, *iter.second.element, triangulate);
+			}
+			if (last_prop && last_prop->value == "Shape" && !ignore_geometry)
+			{
+				obj = new ShapeImpl(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "Material")
@@ -2722,6 +2902,10 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 					obj = parseCluster(*scene, *iter.second.element);
 				else if (class_prop->getValue() == "Skin")
 					obj = parse<SkinImpl>(*scene, *iter.second.element);
+				else if (class_prop->getValue() == "BlendShape" && !ignore_blend_shapes)
+					obj = parse<BlendShapeImpl>(*scene, *iter.second.element);
+				else if (class_prop->getValue() == "BlendShapeChannel" && !ignore_blend_shapes)
+					obj = parse<BlendShapeChannelImpl>(*scene, *iter.second.element);
 			}
 		}
 		else if (iter.second.element->id == "NodeAttribute")
@@ -2831,6 +3015,32 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 				}
 				break;
 			}
+			case Object::Type::BLEND_SHAPE:
+			{
+				BlendShapeImpl* blendShape = (BlendShapeImpl*)parent;
+				if (child->getType() == Object::Type::BLEND_SHAPE_CHANNEL)
+				{
+					BlendShapeChannelImpl* blendShapeChannel = (BlendShapeChannelImpl*)child;
+					blendShape->blendShapeChannels.push_back(blendShapeChannel);
+					if (blendShapeChannel->blendShape)
+					{
+						Error::s_message = "Invalid blend shape";
+						return false;
+					}
+					blendShapeChannel->blendShape = blendShape;
+				}
+				break;
+			}
+			case Object::Type::BLEND_SHAPE_CHANNEL:
+			{
+				BlendShapeChannelImpl* blendShapeChannel = (BlendShapeChannelImpl*)parent;
+                if (child->getType() == Object::Type::SHAPE)
+				{
+					ShapeImpl* shape = (ShapeImpl*)child;
+					blendShapeChannel->shapes.push_back(shape);
+				}
+				break;
+			}
 			case Object::Type::MATERIAL:
 			{
 				MaterialImpl* mat = (MaterialImpl*)parent;
@@ -2857,7 +3067,10 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 			case Object::Type::GEOMETRY:
 			{
 				GeometryImpl* geom = (GeometryImpl*)parent;
-				if (child->getType() == Object::Type::SKIN) geom->skin = (Skin*)child;
+				if (child->getType() == Object::Type::SKIN)
+					geom->skin = (Skin*)child;
+				else if (child->getType() == Object::Type::BLEND_SHAPE)
+					geom->blendShape = (BlendShape*)child;
 				break;
 			}
 			case Object::Type::CLUSTER:
@@ -2920,6 +3133,12 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags)
 				case Object::Type::CLUSTER:
 					if (!((ClusterImpl*)iter.second.object)->postprocess()) {
 						Error::s_message = "Failed to postprocess cluster";
+						return false;
+					}
+					break;
+				case Object::Type::BLEND_SHAPE_CHANNEL:
+					if (!((BlendShapeChannelImpl*)iter.second.object)->postprocess()) {
+						Error::s_message = "Failed to postprocess blend shape channel";
 						return false;
 					}
 					break;
@@ -3128,7 +3347,7 @@ Object* Object::getParent() const
 	Object* parent = nullptr;
 	for (auto& connection : scene.m_connections)
 	{
-		if (connection.from == id && connection.from != connection.to)
+		if (connection.from == id)
 		{
 			Object* obj = scene.m_object_map.find(connection.to)->second.object;
 			if (obj && obj->is_node)
