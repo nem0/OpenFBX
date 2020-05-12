@@ -26,7 +26,12 @@ struct Allocator {
 	Page* first = nullptr;
 
 	~Allocator() {
-		assert(false);
+		Page* p = first;
+		while (p) {
+			Page* n = p->header.next;
+			delete p;
+			p = n;
+		}
 	}
 
 	template <typename T, typename... Args> T* allocate(Args&&... args)
