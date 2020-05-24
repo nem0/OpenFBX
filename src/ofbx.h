@@ -234,7 +234,10 @@ struct Texture : Object
 		DIFFUSE,
 		NORMAL,
 		SPECULAR,
-
+        SHININESS,
+        AMBIENT,
+        EMISSIVE,
+        REFLECTION,
 		COUNT
 	};
 
@@ -254,6 +257,19 @@ struct Material : Object
 
 	virtual Color getDiffuseColor() const = 0;
 	virtual Color getSpecularColor() const = 0;
+    virtual Color getReflectionColor() const = 0;
+    virtual Color getAmbientColor() const = 0;
+    virtual Color getEmissiveColor() const = 0;
+
+    virtual double getDiffuseFactor() const = 0;
+    virtual double getSpecularFactor() const = 0;
+    virtual double getReflectionFactor() const = 0;
+    virtual double getShininess() const = 0;
+    virtual double getShininessExponent() const = 0;
+    virtual double getAmbientFactor() const = 0;
+    virtual double getBumpFactor() const = 0;
+    virtual double getEmissiveFactor() const = 0;
+
 	virtual const Texture* getTexture(Texture::TextureType type) const = 0;
 };
 

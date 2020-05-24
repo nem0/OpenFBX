@@ -1071,15 +1071,38 @@ struct MaterialImpl : Material
 
 	Type getType() const override { return Type::MATERIAL; }
 
-
 	const Texture* getTexture(Texture::TextureType type) const override { return textures[type]; }
 	Color getDiffuseColor() const override { return diffuse_color; }
 	Color getSpecularColor() const override { return specular_color; }
+    Color getReflectionColor() const override { return reflection_color; };
+    Color getAmbientColor() const override { return ambient_color; };
+    Color getEmissiveColor() const override { return emissive_color; };
+    
+    double getDiffuseFactor() const override { return diffuse_factor; };
+    double getSpecularFactor() const override { return specular_factor; };
+    double getReflectionFactor() const override { return reflection_factor; };
+    double getShininess() const override { return shininess; };
+    double getShininessExponent() const override { return shininess_exponent; };
+    double getAmbientFactor() const override { return ambient_factor; };
+    double getBumpFactor() const override { return bump_factor; };
+    double getEmissiveFactor() const override { return emissive_factor; };
 
 	const Texture* textures[Texture::TextureType::COUNT];
 	Color diffuse_color;
 	Color specular_color;
-};
+    Color reflection_color;
+    Color ambient_color;
+    Color emissive_color;
+
+    double diffuse_factor;
+    double specular_factor;
+    double reflection_factor;
+    double shininess;
+    double shininess_exponent;
+    double ambient_factor;
+    double bump_factor;
+    double emissive_factor;
+ };
 
 
 struct LimbNodeImpl : Object
@@ -1849,6 +1872,56 @@ static OptionalError<Object*> parseMaterial(const Scene& scene, const Element& e
 				material->specular_color.g = (float)prop->getProperty(5)->getValue().toDouble();
 				material->specular_color.b = (float)prop->getProperty(6)->getValue().toDouble();
 			}
+            else if (prop->first_property->value == "Shininess")
+            {
+                material->shininess = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "ShininessExponent")
+            {
+                material->shininess_exponent = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "ReflectionColor")
+            {
+                material->reflection_color.r = (float)prop->getProperty(4)->getValue().toDouble();
+                material->reflection_color.g = (float)prop->getProperty(5)->getValue().toDouble();
+                material->reflection_color.b = (float)prop->getProperty(6)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "AmbientColor")
+            {
+                material->ambient_color.r = (float)prop->getProperty(4)->getValue().toDouble();
+                material->ambient_color.g = (float)prop->getProperty(5)->getValue().toDouble();
+                material->ambient_color.b = (float)prop->getProperty(6)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "EmissiveColor")
+            {
+                material->emissive_color.r = (float)prop->getProperty(4)->getValue().toDouble();
+                material->emissive_color.g = (float)prop->getProperty(5)->getValue().toDouble();
+                material->emissive_color.b = (float)prop->getProperty(6)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "ReflectionFactor")
+            {
+                material->reflection_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "BumpFactor")
+            {
+                material->bump_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "AmbientFactor")
+            {
+                material->ambient_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "DiffuseFactor")
+            {
+                material->diffuse_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "SpecularFactor")
+            {
+                material->specular_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
+            else if (prop->first_property->value == "EmissiveFactor")
+            {
+                material->emissive_factor = (float)prop->getProperty(4)->getValue().toDouble();
+            }
 		}
 		prop = prop->sibling;
 	}
@@ -2585,7 +2658,6 @@ static OptionalError<Object*> parseGeometry(const Element& element, bool triangu
 bool ShapeImpl::postprocess(GeometryImpl* geom, Allocator& allocator)
 {
 	assert(geom);
-	assert(element.first_property);
 
 	const Element* vertices_element = findChild((const Element&)element, "Vertices");
 	const Element* normals_element = findChild((const Element&)element, "Normals");
@@ -3108,6 +3180,14 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 						type = Texture::DIFFUSE;
 					else if (con.property == "SpecularColor")
 						type = Texture::SPECULAR;
+                    else if (con.property == "ShininessExponent")
+                        type = Texture::SHININESS;
+                    else if (con.property == "EmissiveColor")
+                        type = Texture::EMISSIVE;
+                    else if (con.property == "AmbientColor")
+                        type = Texture::AMBIENT;
+                    else if (con.property == "ReflectionFactor")
+                        type = Texture::REFLECTION;
 					if (type == Texture::COUNT) break;
 
 					if (mat->textures[type])
