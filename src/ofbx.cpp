@@ -74,6 +74,14 @@ struct Temporaries {
 };
 
 
+struct Video
+{
+	DataView filename;
+	DataView content;
+	DataView media;
+};
+
+
 struct Error
 {
 	Error() {}
@@ -1509,7 +1517,9 @@ struct TextureImpl : Texture
 
 	DataView getRelativeFileName() const override { return relative_filename; }
 	DataView getFileName() const override { return filename; }
+	DataView getEmebeddedData() const override;
 
+	DataView media;
 	DataView filename;
 	DataView relative_filename;
 	Type getType() const override { return Type::TEXTURE; }
@@ -1609,8 +1619,22 @@ struct Scene : IScene
 	std::vector<Connection> m_connections;
 	std::vector<u8> m_data;
 	std::vector<TakeInfo> m_take_infos;
+	std::vector<Video> m_videos;
 	Allocator m_allocator;
 };
+
+
+DataView TextureImpl::getEmebeddedData() const {
+	if (!media.begin) return media;
+	for (const Video& v : scene.m_videos) {
+		if (v.media.end - v.media.begin != media.end - media.begin) continue;
+		const size_t len = v.media.end - v.media.begin;
+		if (memcmp(v.media.begin, media.begin, len) != 0) continue;
+
+		return v.content;
+	}
+	return {};
+}
 
 
 bool PoseImpl::postprocess(Scene* scene)
@@ -1740,6 +1764,29 @@ struct AnimationLayerImpl : AnimationLayer
 	std::vector<AnimationCurveNodeImpl*> curve_nodes;
 };
 
+void parseVideo(Scene& scene, const Element& element, Allocator& allocator)
+{
+	if (!element.first_property) return;
+	if (!element.first_property->next) return;
+	if (element.first_property->next->getType() != IElementProperty::STRING) return;
+	
+	const Element* content_element = findChild(element, "Content");
+
+	if (!content_element) return;
+	if (!content_element->first_property) return;
+	if (content_element->first_property->getType() != IElementProperty::BINARY) return;
+
+	const Element* filename_element = findChild(element, "Filename");
+	if (!filename_element) return;
+	if (!filename_element->first_property) return;
+	if (filename_element->first_property->getType() != IElementProperty::STRING) return;
+	
+	Video video;
+	video.content = content_element->first_property->value;
+	video.filename = filename_element->first_property->value;
+	video.media = element.first_property->next->value;
+	scene.m_videos.push_back(video);
+}
 
 struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& element, Allocator& allocator)
 {
@@ -1749,6 +1796,13 @@ struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& el
 	{
 		texture->filename = texture_filename->first_property->value;
 	}
+
+	const Element* media = findChild(element, "Media");
+	if (media && media->first_property)
+	{
+		texture->media = media->first_property->value;
+	}
+
 	const Element* texture_relative_filename = findChild(element, "RelativeFilename");
 	if (texture_relative_filename && texture_relative_filename->first_property)
 	{
@@ -3050,6 +3104,10 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 		else if (iter.second.element->id == "Texture")
 		{
 			obj = parseTexture(*scene, *iter.second.element, allocator);
+		}
+		else if (iter.second.element->id == "Video")
+		{
+			parseVideo(*scene, *iter.second.element, allocator);
 		}
 		else if (iter.second.element->id == "Pose")
 		{

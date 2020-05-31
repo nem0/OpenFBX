@@ -107,7 +107,8 @@ struct IElementProperty
 		ARRAY_DOUBLE = 'd',
 		ARRAY_INT = 'i',
 		ARRAY_LONG = 'l',
-		ARRAY_FLOAT = 'f'
+		ARRAY_FLOAT = 'f',
+		BINARY = 'R'
 	};
 	virtual ~IElementProperty() {}
 	virtual Type getType() const = 0;
@@ -246,6 +247,7 @@ struct Texture : Object
 	Texture(const Scene& _scene, const IElement& _element);
 	virtual DataView getFileName() const = 0;
 	virtual DataView getRelativeFileName() const = 0;
+	virtual DataView getEmebeddedData() const = 0;
 };
 
 
