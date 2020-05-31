@@ -292,7 +292,8 @@ project "openfbx"
 	files { "../src/**.c", "../src/**.cpp", "../demo/**.cpp", "../demo/**.h", "../src/**.h", "genie.lua" }
 	defaultConfigurations()
 
-	defines {"_CRT_SECURE_NO_WARNINGS", "_HAS_ITERATOR_DEBUGGING=0" }
+	configuration {}
+		defines {"_CRT_SECURE_NO_WARNINGS", "_HAS_ITERATOR_DEBUGGING=0" }
 	
 	configuration "Release"
 		flags { "NoExceptions", "NoFramePointer", "NoIncrementalLink", "NoRTTI", "OptimizeSize", "No64BitChecks" }

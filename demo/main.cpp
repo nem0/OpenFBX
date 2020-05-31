@@ -76,9 +76,9 @@ void showGUI(const ofbx::IElement& parent)
 		strcat_s(label, ")");
 
 		ImGui::PushID((const void*)id.begin);
-		ImGuiTreeElementFlags flags = g_selected_element == element ? ImGuiTreeElementFlags_Selected : 0;
-		if (!element->getFirstChild()) flags |= ImGuiTreeElementFlags_Leaf;
-		if (ImGui::TreeElementEx(label, flags))
+		ImGuiTreeNodeFlags flags = g_selected_element == element ? ImGuiTreeNodeFlags_Selected : 0;
+		if (!element->getFirstChild()) flags |= ImGuiTreeNodeFlags_Leaf;
+		if (ImGui::TreeNodeEx(label, flags))
 		{
 			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_element = element;
 			if (element->getFirstChild()) showGUI(*element);
@@ -143,7 +143,7 @@ static void showCurveGUI(const ofbx::Object& object) {
     
     const int c = curve.getKeyCount();
     for (int i = 0; i < c; ++i) {
-        const float t = ofbx::fbxTimeToSeconds(curve.getKeyTime()[i]);
+        const float t = (float)ofbx::fbxTimeToSeconds(curve.getKeyTime()[i]);
         const float v = curve.getKeyValue()[i];
         ImGui::Text("%fs: %f ", t, v);
         
@@ -173,10 +173,10 @@ void showObjectGUI(const ofbx::Object& object)
 		default: assert(false); break;
 	}
 
-	ImGuiTreeElementFlags flags = g_selected_object == &object ? ImGuiTreeElementFlags_Selected : 0;
+	ImGuiTreeNodeFlags flags = g_selected_object == &object ? ImGuiTreeNodeFlags_Selected : 0;
 	char tmp[128];
 	sprintf_s(tmp, "%" PRId64 " %s (%s)", object.id, object.name, label);
-	if (ImGui::TreeElementEx(tmp, flags))
+	if (ImGui::TreeNodeEx(tmp, flags))
 	{
 		if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) g_selected_object = &object;
 		int i = 0;
@@ -322,11 +322,17 @@ void onGUI()
 	io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 	io.KeyCtrl = (GetKeyState(VK_MENU) & 0x8000) != 0;
 
+	RECT rect;
+	BOOL status = GetClientRect(g_hWnd, &rect);
+
+	io.DisplaySize.x = float(rect.right - rect.left);
+	io.DisplaySize.y = float(rect.bottom - rect.top);
+
 	ImGui::NewFrame();
 
 	if (g_scene)
 	{
-		ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
+//		ImGui::RootDock(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
 		if (ImGui::Begin("Elements"))
 		{
 			const ofbx::IElement* root = g_scene->getRootElement();
@@ -350,6 +356,7 @@ void onGUI()
 
 void onResize(int width, int height)
 {
+	if (!ImGui::GetCurrentContext()) return;
 	auto& io = ImGui::GetIO();
 	io.DisplaySize.x = (float)width;
 	io.DisplaySize.y = (float)height;
@@ -537,9 +544,12 @@ void imGUICallback(ImDrawData* draw_data)
 
 void initImGUI()
 {
+	ImGuiContext* ctx = ImGui::CreateContext();
+	ImGui::SetCurrentContext(ctx);
 	ImGuiIO& io = ImGui::GetIO();
 	unsigned char* pixels;
 	int width, height;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 	glEnable(GL_TEXTURE_2D);
 	glGenTextures(1, &g_font_texture);
@@ -586,7 +596,7 @@ bool init()
 	ShowWindow(g_hWnd, SW_SHOW);
 	initImGUI();
 
-	FILE* fp = fopen("d.fbx", "rb");
+	FILE* fp = fopen("x.fbx", "rb");
 	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
