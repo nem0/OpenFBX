@@ -739,7 +739,7 @@ static void skipWhitespaces(Cursor* cursor)
 
 static bool isTextTokenChar(char c)
 {
-	return isalnum(c) || c == '_';
+	return isalnum(c) || c == '_' || c == '-';
 }
 
 
@@ -808,7 +808,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor, Allocator& allo
 		return prop;
 	}
 
-	if (*cursor->current == 'T' || *cursor->current == 'Y' || *cursor->current == 'W')
+	if (*cursor->current == 'T' || *cursor->current == 'Y' || *cursor->current == 'W' || *cursor->current == 'C')
 	{
 		// WTF is this
 		prop->type = *cursor->current;
