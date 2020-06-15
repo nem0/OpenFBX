@@ -14,7 +14,6 @@ namespace ofbx
 {
 
 
-static volatile u32 xxx = 0;
 struct Allocator {
 	struct Page {
 		struct {
@@ -52,7 +51,6 @@ struct Allocator {
 		}
 		T* res = new (p->data + p->header.offset) T(args...);
 		p->header.offset += sizeof(T);
-		++xxx;
 		return res;
 	}
 
