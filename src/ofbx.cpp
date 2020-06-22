@@ -1612,7 +1612,10 @@ struct Scene : IScene
 	void destroy() override { delete this; }
 
 
-	~Scene() override {}
+	~Scene() override {
+		for(auto ptr : m_all_objects)
+			ptr->~Object();
+	}
 
 
 	Element* m_root_element = nullptr;
