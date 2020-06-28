@@ -596,7 +596,7 @@ bool init()
 	ShowWindow(g_hWnd, SW_SHOW);
 	initImGUI();
 
-	FILE* fp = fopen("x.fbx", "rb");
+	FILE* fp = fopen("a.fbx", "rb");
 	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
