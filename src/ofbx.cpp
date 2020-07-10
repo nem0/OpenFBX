@@ -43,7 +43,7 @@ struct Allocator {
 		if (p->header.offset % alignof(T) != 0) {
 			p->header.offset += alignof(T) - p->header.offset % alignof(T);
 		}
-		
+
 		if (p->header.offset + sizeof(T) > sizeof(p->data)) {
 			p = new Page;
 			p->header.next = first;
@@ -301,7 +301,9 @@ u64 DataView::toU64() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(u64));
-		return *(u64*)begin;
+		u64 result;
+		memcpy(&result, begin, sizeof(u64));
+		return result;
 	}
 	static_assert(sizeof(unsigned long long) >= sizeof(u64), "can't use strtoull");
 	return strtoull((const char*)begin, nullptr, 10);
@@ -313,7 +315,9 @@ i64 DataView::toI64() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(i64));
-		return *(i64*)begin;
+		i64 result;
+		memcpy(&result, begin, sizeof(i64));
+		return result;
 	}
 	static_assert(sizeof(long long) >= sizeof(i64), "can't use atoll");
 	return atoll((const char*)begin);
@@ -325,7 +329,9 @@ int DataView::toInt() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(int));
-		return *(int*)begin;
+		int result;
+		memcpy(&result, begin, sizeof(int));
+		return result;
 	}
 	return atoi((const char*)begin);
 }
@@ -336,7 +342,9 @@ u32 DataView::toU32() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(u32));
-		return *(u32*)begin;
+		u32 result;
+		memcpy(&result, begin, sizeof(u32));
+		return result;
 	}
 	return (u32)atoll((const char*)begin);
 }
@@ -347,7 +355,9 @@ double DataView::toDouble() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(double));
-		return *(double*)begin;
+		double result;
+		memcpy(&result, begin, sizeof(double));
+		return result;
 	}
 	return atof((const char*)begin);
 }
@@ -358,7 +368,9 @@ float DataView::toFloat() const
 	if (is_binary)
 	{
 		assert(end - begin == sizeof(float));
-		return *(float*)begin;
+		float result;
+		memcpy(&result, begin, sizeof(float));
+		return result;
 	}
 	return (float)atof((const char*)begin);
 }
@@ -1081,7 +1093,7 @@ struct MaterialImpl : Material
     Color getReflectionColor() const override { return reflection_color; };
     Color getAmbientColor() const override { return ambient_color; };
     Color getEmissiveColor() const override { return emissive_color; };
-    
+
     double getDiffuseFactor() const override { return diffuse_factor; };
     double getSpecularFactor() const override { return specular_factor; };
     double getReflectionFactor() const override { return reflection_factor; };
@@ -1669,15 +1681,15 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 
 		if (dx) {
 			Property* x = (Property*)dx->getProperty(4);
-			if (x) default_values[0] = (float)x->value.toDouble();	
+			if (x) default_values[0] = (float)x->value.toDouble();
 		}
 		if (dy) {
 			Property* y = (Property*)dy->getProperty(4);
-			if (y) default_values[1] = (float)y->value.toDouble();	
+			if (y) default_values[1] = (float)y->value.toDouble();
 		}
 		if (dz) {
 			Property* z = (Property*)dz->getProperty(4);
-			if (z) default_values[2] = (float)z->value.toDouble();	
+			if (z) default_values[2] = (float)z->value.toDouble();
 		}
 	}
 
@@ -1779,7 +1791,7 @@ void parseVideo(Scene& scene, const Element& element, Allocator& allocator)
 	if (!element.first_property) return;
 	if (!element.first_property->next) return;
 	if (element.first_property->next->getType() != IElementProperty::STRING) return;
-	
+
 	const Element* content_element = findChild(element, "Content");
 
 	if (!content_element) return;
@@ -1790,7 +1802,7 @@ void parseVideo(Scene& scene, const Element& element, Allocator& allocator)
 	if (!filename_element) return;
 	if (!filename_element->first_property) return;
 	if (filename_element->first_property->getType() != IElementProperty::STRING) return;
-	
+
 	Video video;
 	video.content = content_element->first_property->value;
 	video.filename = filename_element->first_property->value;
@@ -2730,7 +2742,7 @@ bool ShapeImpl::postprocess(GeometryImpl* geom, Allocator& allocator)
 	{
 		return false;
 	}
-   
+
 	allocator.vec3_tmp.clear(); // old vertices
 	allocator.vec3_tmp2.clear(); // old normals
 	allocator.int_tmp.clear(); // old indices
@@ -3569,7 +3581,7 @@ IScene* load(const u8* data, int size, u64 flags, JobProcessor job_processor, vo
 	scene->m_data.resize(size);
 	memcpy(&scene->m_data[0], data, size);
 	u32 version;
-	
+
 	const bool is_binary = size >= 18 && strncmp((const char*)data, "Kaydara FBX Binary", 18) == 0;
 	OptionalError<Element*> root(nullptr);
 	if (is_binary) {
