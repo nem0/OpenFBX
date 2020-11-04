@@ -584,9 +584,9 @@ void initImGUI()
 }
 
 
-bool init()
+bool init(const char* filepath)
 {
-	g_hWnd = CreateOpenGLWindow("minimal", 0, 0, 800, 600, PFD_TYPE_RGBA, 0);
+	g_hWnd = CreateOpenGLWindow("openfbx info viewer", 0, 0, 800, 600, PFD_TYPE_RGBA, 0);
 	if (g_hWnd == NULL) return false;
 
 	g_hDC = GetDC(g_hWnd);
@@ -596,7 +596,8 @@ bool init()
 	ShowWindow(g_hWnd, SW_SHOW);
 	initImGUI();
 
-	FILE* fp = fopen("a.fbx", "rb");
+	FILE* fp = fopen(filepath, "rb");
+
 	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
@@ -620,8 +621,23 @@ bool init()
 
 INT WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 {
-	init();
-
+	// load either from command line arguments or loads a default file
+	{
+		LPWSTR* szArgList;
+		int argCount;
+		char filepath[2048];
+		szArgList = CommandLineToArgvW(GetCommandLineW(), &argCount);
+		if (argCount == 1)
+		{
+			strcpy(filepath,"b.fbx");
+		}
+		for (int i = 1; i < argCount; i++)
+		{
+			wcstombs(filepath, szArgList[i], wcslen(szArgList[i]));
+		}
+		init(filepath);
+		LocalFree(szArgList);
+	}
 	bool finished = false;
 	while (!finished)
 	{
