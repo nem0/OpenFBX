@@ -715,13 +715,13 @@ static OptionalError<Element*> readElement(Cursor* cursor, u32 version, Allocato
 
 static bool isEndLine(const Cursor& cursor)
 {
-	return *cursor.current == '\n';
+	return *cursor.current == '\n' || *cursor.current == '\r' && cursor.current + 1 < cursor.end && *(cursor.current + 1) != '\n';
 }
 
 
 static void skipInsignificantWhitespaces(Cursor* cursor)
 {
-	while (cursor->current < cursor->end && isspace(*cursor->current) && *cursor->current != '\n')
+	while (cursor->current < cursor->end && isspace(*cursor->current) && !isEndLine(*cursor))
 	{
 		++cursor->current;
 	}
@@ -851,7 +851,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor, Allocator& allo
 				if (is_any) ++prop->count;
 				is_any = false;
 			}
-			else if (!isspace(*cursor->current) && *cursor->current != '\n')
+			else if (!isspace(*cursor->current) && !isEndLine(*cursor))
 				is_any = true;
 			if (*cursor->current == '.') prop->type = 'd';
 			++cursor->current;
@@ -881,7 +881,7 @@ static OptionalError<Element*> readTextElement(Cursor* cursor, Allocator& alloca
 	element->id = id;
 
 	Property** prop_link = &element->first_property;
-	while (cursor->current < cursor->end && *cursor->current != '\n' && *cursor->current != '{')
+	while (cursor->current < cursor->end && !isEndLine(*cursor) && *cursor->current != '{')
 	{
 		OptionalError<Property*> prop = readTextProperty(cursor, allocator);
 		if (prop.isError())
