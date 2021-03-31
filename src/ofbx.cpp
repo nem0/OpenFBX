@@ -406,7 +406,9 @@ struct Property : IElementProperty
 		assert(type == ARRAY_DOUBLE || type == ARRAY_INT || type == ARRAY_FLOAT || type == ARRAY_LONG);
 		if (value.is_binary)
 		{
-			return int(*(u32*)value.begin);
+			int i;
+			memcpy(&i, value.begin, sizeof(i));
+			return i;
 		}
 		return count;
 	}
@@ -1444,7 +1446,7 @@ struct BlendShapeChannelImpl : BlendShapeChannel
 			if (!parseBinaryArray(*full_weights_el->first_property, &fullWeights)) return false;
 		}
 
-		for (int i = 0; i < shapes.size(); i++)
+		for (int i = 0; i < (int)shapes.size(); i++)
 		{
 			auto shape = (ShapeImpl*)shapes[i];
 			if (!shape->postprocess(geom, allocator)) return false;
@@ -1778,7 +1780,7 @@ struct AnimationLayerImpl : AnimationLayer
 
 	const AnimationCurveNode* getCurveNode(int index) const override
 	{
-		if (index >= curve_nodes.size() || index < 0) return nullptr;
+		if (index >= (int)curve_nodes.size() || index < 0) return nullptr;
 		return curve_nodes[index];
 	}
 
@@ -2475,7 +2477,7 @@ static void triangulate(
 	};
 
 	int in_polygon_idx = 0;
-	for (int i = 0; i < old_indices.size(); ++i)
+	for (int i = 0; i < (int)old_indices.size(); ++i)
 	{
 		int idx = getIdx(i);
 		if (in_polygon_idx <= 2) //-V1051
