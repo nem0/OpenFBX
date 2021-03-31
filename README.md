@@ -1,4 +1,3 @@
-![build](https://github.com/nem0/OpenFBX/workflows/build/badge.svg)
 [![Discord Chat](https://img.shields.io/discord/480318777943392266.svg)](https://discord.gg/RgFybs6) 
 [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
 
