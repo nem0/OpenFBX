@@ -20,8 +20,8 @@ See [Lumix Engine](https://github.com/nem0/LumixEngine/blob/master/src/renderer/
 ## Compile demo project
 
 1. download source code
-2. execute [projects/genie_vs15.bat](https://github.com/nem0/OpenFBX/blob/master/projects/genie_vs15.bat)
-3. open projects/tmp/vs2015/OpenFBX.sln in Visual Studio 2015
+2. execute [projects/genie_vs19.bat](https://github.com/nem0/OpenFBX/blob/master/projects/genie_vs19.bat)
+3. open projects/tmp/vs2019/OpenFBX.sln in Visual Studio 2019
 4. compile and run
 
 Demo is windows only. Library is multiplatform.
