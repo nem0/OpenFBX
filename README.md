@@ -7,6 +7,8 @@ Lightweight open source FBX importer. Used in [Lumix Engine](https://github.com/
 
 Feel free to request new features. I will eventually try (or not) to add all missing fbx features.
 
+[UFBX](https://github.com/bqqbarbhg/ufbx) is similar project in C.
+
 ## Use the library in your own project
 
 Note: It's recommended to be familiar with fbx format to use this library, you can read about it more [here](http://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_F194000D_5AD4_49C1_86CC_5DAC2CE64E97_htm).
