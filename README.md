@@ -5,8 +5,6 @@
 
 Lightweight open source FBX importer. Used in [Lumix Engine](https://github.com/nem0/lumixengine) and [Flax Engine](https://flaxengine.com/). It's an *almost* full-featured importer. It can load geometry (with uvs, normals, tangents, colors), skeletons, animations, blend shapes, materials and textures.
 
-Feel free to request new features. I will eventually try (or not) to add all missing fbx features.
-
 [UFBX](https://github.com/bqqbarbhg/ufbx) is similar project in C.
 
 ## Use the library in your own project
@@ -18,6 +16,8 @@ Note: It's recommended to be familiar with fbx format to use this library, you c
 
 See [demo](https://github.com/nem0/OpenFBX/blob/master/demo/main.cpp#L203) as an example how to use the library.
 See [Lumix Engine](https://github.com/nem0/LumixEngine/blob/master/src/renderer/editor/fbx_importer.cpp) as more advanced use case.
+
+Alternatively, CMake support is provided by community but it's not supported by me - @nem0.
 
 ## Compile demo project
 
