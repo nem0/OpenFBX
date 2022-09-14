@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.11)
 
 project(OpenFBX LANGUAGES CXX)
 
-include(GNUInstallDirs)
-include(CMakeFindDependencyMacro)
+set(CMAKE_CXX_STANDARD 11)
 
-find_dependency(miniz REQUIRED)
+include(GNUInstallDirs)
+
+find_package(miniz REQUIRED)
 
 add_library(OpenFBX src/ofbx.cpp)
 target_link_libraries(OpenFBX PRIVATE miniz::miniz)
