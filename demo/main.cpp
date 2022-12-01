@@ -625,7 +625,7 @@ INT WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 	{
 		LPWSTR* szArgList;
 		int argCount;
-		char filepath[2048];
+		char filepath[2048] = {0};
 		szArgList = CommandLineToArgvW(GetCommandLineW(), &argCount);
 		if (argCount == 1)
 		{
