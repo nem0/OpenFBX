@@ -33,3 +33,4 @@ projects/tmp/*
 *.app
 
 runtime/imgui.ini
+build/
