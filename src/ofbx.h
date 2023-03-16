@@ -168,6 +168,8 @@ struct Object
 		TEXTURE,
 		LIMB_NODE,
 		NULL_NODE,
+		CAMERA,
+		LIGHT,
 		NODE_ATTRIBUTE,
 		CLUSTER,
 		SKIN,
@@ -255,6 +257,79 @@ struct Texture : Object
 	virtual DataView getEmbeddedData() const = 0;
 };
 
+struct Light : Object
+{
+    enum class LightType
+    {
+        POINT,
+        DIRECTIONAL,
+        SPOT,
+        AREA,
+        VOLUME,
+        COUNT
+    };
+
+    enum class DecayType
+    {
+        NO_DECAY,
+        LINEAR,
+        QUADRATIC,
+        CUBIC,
+        COUNT
+    };
+
+    enum class AreaLightShape
+    {
+        RECTANGLE,
+        SPHERE,
+        COUNT
+    };
+
+    static const Type s_type = Type::LIGHT;
+
+    Light(const Scene& _scene, const IElement& _element);
+
+	// Light type
+	virtual LightType getLightType() const = 0;
+
+	// Light properties
+	virtual bool doesCastLight() const = 0;
+	virtual bool doesDrawVolumetricLight() const = 0;
+	virtual bool doesDrawGroundProjection() const = 0;
+	virtual bool doesDrawFrontFacingVolumetricLight() const = 0;
+	virtual Vec3 getColor() const = 0;
+	virtual double getIntensity() const = 0;
+	virtual double getInnerAngle() const = 0;
+	virtual double getOuterAngle() const = 0;
+	virtual double getFog() const = 0;
+	virtual DecayType getDecayType() const = 0;
+	virtual double getDecayStart() const = 0;
+
+	// Near attenuation
+	virtual bool doesEnableNearAttenuation() const = 0;
+	virtual double getNearAttenuationStart() const = 0;
+	virtual double getNearAttenuationEnd() const = 0;
+
+	// Far attenuation
+	virtual bool doesEnableFarAttenuation() const = 0;
+	virtual double getFarAttenuationStart() const = 0;
+	virtual double getFarAttenuationEnd() const = 0;
+
+	// Shadows
+	virtual const Texture* getShadowTexture() const = 0;
+	virtual bool doesCastShadows() const = 0;
+	virtual Vec3 getShadowColor() const = 0;
+
+	// Area light shape
+	virtual AreaLightShape getAreaLightShape() const = 0;
+
+	// Barn doors
+	virtual float getLeftBarnDoor() const = 0;
+	virtual float getRightBarnDoor() const = 0;
+	virtual float getTopBarnDoor() const = 0;
+	virtual float getBottomBarnDoor() const = 0;
+	virtual bool doesEnableBarnDoor() const = 0;
+};
 
 struct Material : Object
 {

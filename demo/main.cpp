@@ -170,6 +170,8 @@ void showObjectGUI(const ofbx::Object& object)
 		case ofbx::Object::Type::ANIMATION_LAYER: label = "animation layer"; break;
 		case ofbx::Object::Type::ANIMATION_CURVE: label = "animation curve"; break;
 		case ofbx::Object::Type::ANIMATION_CURVE_NODE: label = "animation curve node"; break;
+		case ofbx::Object::Type::LIGHT: label = "light"; break;
+		case ofbx::Object::Type::CAMERA: label = "camera"; break;
 		default: assert(false); break;
 	}
 
@@ -549,7 +551,8 @@ void initImGUI()
 	ImGuiIO& io = ImGui::GetIO();
 	unsigned char* pixels;
 	int width, height;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	// Enable docking and keyboard navigation
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_NavEnableKeyboard;
 	io.Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 	glEnable(GL_TEXTURE_2D);
 	glGenTextures(1, &g_font_texture);
@@ -572,6 +575,7 @@ void initImGUI()
 	io.KeyMap[ImGuiKey_End] = VK_END;
 	io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
 	io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
+	io.KeyMap[ImGuiKey_Space] = VK_SPACE;
 	io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
 	io.KeyMap[ImGuiKey_Escape] = VK_ESCAPE;
 	io.KeyMap[ImGuiKey_A] = 'A';

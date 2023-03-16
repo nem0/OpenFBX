@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 
 namespace ofbx
@@ -83,7 +84,11 @@ struct Video
 struct Error
 {
 	Error() {}
-	Error(const char* msg) { s_message = msg; }
+	Error(const char* msg)
+	{
+		s_message = msg;
+		std::cout << msg << std::endl;
+	}
 
 	static const char* s_message;
 };
@@ -582,6 +587,20 @@ static OptionalError<DataView> readLongString(Cursor* cursor)
 	return value;
 }
 
+// 	Cheat sheet: //
+/*
+'S': Long string
+'Y': 16-bit signed integer
+'C': 8-bit signed integer
+'I': 32-bit signed integer
+'F': Single precision floating-point number
+'D': Double precision floating-point number
+'L': 64-bit signed integer
+'R': Binary data
+'b', 'f', 'd', 'l', and 'i': Arrays of binary data
+
+Src: https://code.blender.org/2013/08/fbx-binary-file-format-specification/
+*/
 
 static OptionalError<Property*> readProperty(Cursor* cursor, Allocator& allocator)
 {
@@ -617,6 +636,7 @@ static OptionalError<Property*> readProperty(Cursor* cursor, Allocator& allocato
 			break;
 		}
 		case 'b':
+		case 'c':
 		case 'f':
 		case 'd':
 		case 'l':
@@ -630,12 +650,17 @@ static OptionalError<Property*> readProperty(Cursor* cursor, Allocator& allocato
 			cursor->current += comp_len.getValue();
 			break;
 		}
-		default: return Error("Unknown property type");
+		default:
+		{
+			std::string str;
+			str += "Unknown property type: ";
+			str += prop->type;
+			return Error(str.c_str());
+		}
 	}
 	prop->value.end = cursor->current;
 	return prop;
 }
-
 
 static OptionalError<u64> readElementOffset(Cursor* cursor, u16 version)
 {
@@ -962,12 +987,14 @@ static OptionalError<Element*> tokenizeText(const u8* data, size_t size, Allocat
 
 static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& version, Allocator& allocator)
 {
+	if (size < sizeof(Header)) return Error("Invalid header");
+
 	Cursor cursor;
 	cursor.begin = data;
 	cursor.current = data;
 	cursor.end = data + size;
 
-	const Header* header = (const Header*)cursor.current;
+	const Header* header = reinterpret_cast<const Header*>(cursor.current);
 	cursor.current += sizeof(*header);
 	version = header->version;
 
@@ -979,18 +1006,19 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& versio
 	root->sibling = nullptr;
 
 	Element** element = &root->child;
-	for (;;)
+	while (true)
 	{
 		OptionalError<Element*> child = readElement(&cursor, header->version, allocator);
-		if (child.isError()) {
+		if (child.isError())
+		{
 			return Error();
 		}
+
 		*element = child.getValue();
 		if (!*element) return root;
 		element = &(*element)->sibling;
 	}
 }
-
 
 static void parseTemplates(const Element& root)
 {
@@ -1555,13 +1583,16 @@ struct Scene : IScene
 		enum Type
 		{
 			OBJECT_OBJECT,
-			OBJECT_PROPERTY
+			OBJECT_PROPERTY,
+			PROPERTY_OBJECT,
+			PROPERTY_PROPERTY,
 		};
 
 		Type type = OBJECT_OBJECT;
 		u64 from = 0;
 		u64 to = 0;
-		DataView property;
+		DataView fromProperty;
+		DataView toProperty;
 	};
 
 	struct ObjectPair
@@ -2814,29 +2845,57 @@ static bool parseConnections(const Element& root, Scene* scene)
 	while (connection)
 	{
 		if (!isString(connection->first_property)
-			|| !isLong(connection->first_property->next)
-			|| !isLong(connection->first_property->next->next))
+			|| !isLong(connection->first_property->next) ||
+			!(isLong(connection->first_property->next->next) || isString(connection->first_property->next->next)))
 		{
 			Error::s_message = "Invalid connection";
 			return false;
 		}
 
 		Scene::Connection c;
-		c.from = connection->first_property->next->value.toU64();
-		c.to = connection->first_property->next->next->value.toU64();
 		if (connection->first_property->value == "OO")
 		{
 			c.type = Scene::Connection::OBJECT_OBJECT;
+			c.from = connection->first_property->next->value.toU64();
+			c.to = connection->first_property->next->next->value.toU64();
 		}
 		else if (connection->first_property->value == "OP")
 		{
 			c.type = Scene::Connection::OBJECT_PROPERTY;
+			c.from = connection->first_property->next->value.toU64();
+			c.to = connection->first_property->next->next->value.toU64();
 			if (!connection->first_property->next->next->next)
 			{
 				Error::s_message = "Invalid connection";
 				return false;
 			}
-			c.property = connection->first_property->next->next->next->value;
+			c.toProperty = connection->first_property->next->next->next->value;
+		}
+		else if (connection->first_property->value == "PO")
+		{
+			c.type = Scene::Connection::PROPERTY_OBJECT;
+			c.from = connection->first_property->next->value.toU64();
+			c.fromProperty = connection->first_property->next->next->value;
+			if (!connection->first_property->next->next->next)
+			{
+				Error::s_message = "Invalid connection";
+				return false;
+			}
+			c.to = connection->first_property->next->next->next->value.toU64();
+		}
+		else if (connection->first_property->value == "PP")
+		{
+			c.type = Scene::Connection::PROPERTY_PROPERTY;
+			c.from = connection->first_property->next->value.toU64();
+			c.fromProperty = connection->first_property->next->next->value;
+			c.to = connection->first_property->next->next->next->value.toU64();
+
+			if (!connection->first_property->next->next->next->next)
+			{
+				Error::s_message = "Invalid connection";
+				return false;
+			}
+			c.toProperty = connection->first_property->next->next->next->next->value;
 		}
 		else
 		{
@@ -3168,6 +3227,8 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 
 	for (const Scene::Connection& con : scene->m_connections)
 	{
+		if (con.type == Scene::Connection::PROPERTY_PROPERTY) continue;
+
 		Object* parent = scene->m_object_map[con.to].object;
 		Object* child = scene->m_object_map[con.from].object;
 		if (!child) continue;
@@ -3188,7 +3249,7 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				{
 					AnimationCurveNodeImpl* node = (AnimationCurveNodeImpl*)child;
 					node->bone = parent;
-					node->bone_link_property = con.property;
+					node->bone_link_property = con.toProperty;
 				}
 				break;
 		}
@@ -3260,19 +3321,19 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				if (child->getType() == Object::Type::TEXTURE)
 				{
 					Texture::TextureType type = Texture::COUNT;
-					if (con.property == "NormalMap")
+					if (con.toProperty == "NormalMap")
 						type = Texture::NORMAL;
-					else if (con.property == "DiffuseColor")
+					else if (con.toProperty == "DiffuseColor")
 						type = Texture::DIFFUSE;
-					else if (con.property == "SpecularColor")
+					else if (con.toProperty == "SpecularColor")
 						type = Texture::SPECULAR;
-                    else if (con.property == "ShininessExponent")
+					else if (con.toProperty == "ShininessExponent")
                         type = Texture::SHININESS;
-                    else if (con.property == "EmissiveColor")
+					else if (con.toProperty == "EmissiveColor")
                         type = Texture::EMISSIVE;
-                    else if (con.property == "AmbientColor")
+					else if (con.toProperty == "AmbientColor")
                         type = Texture::AMBIENT;
-                    else if (con.property == "ReflectionFactor")
+					else if (con.toProperty == "ReflectionFactor")
                         type = Texture::REFLECTION;
 					if (type == Texture::COUNT) break;
 
@@ -3323,7 +3384,7 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				if (child->getType() == Object::Type::ANIMATION_CURVE)
 				{
 					char tmp[32];
-					con.property.toString(tmp);
+					con.toProperty.toString(tmp);
 					if (strcmp(tmp, "d|X") == 0)
 					{
 						node->curves[0].connection = &con;
@@ -3551,7 +3612,7 @@ Object* Object::resolveObjectLink(Object::Type type, const char* property, int i
 			Object* obj = scene.m_object_map.find(connection.from)->second.object;
 			if (obj && obj->getType() == type)
 			{
-				if (property == nullptr || connection.property == property)
+				if (property == nullptr || connection.toProperty == property)
 				{
 					if (idx == 0) return obj;
 					--idx;
