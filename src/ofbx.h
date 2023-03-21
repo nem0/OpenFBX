@@ -81,6 +81,7 @@ struct DataView
 	i64 toI64() const;
 	int toInt() const;
 	u32 toU32() const;
+	bool toBool() const;
 	double toDouble() const;
 	float toFloat() const;
 
@@ -259,35 +260,38 @@ struct Texture : Object
 
 struct Light : Object
 {
-    enum class LightType
-    {
-        POINT,
-        DIRECTIONAL,
-        SPOT,
-        AREA,
-        VOLUME,
-        COUNT
-    };
+public:
+	enum class LightType
+	{
+		POINT,
+		DIRECTIONAL,
+		SPOT,
+		AREA,
+		VOLUME,
+		COUNT
+	};
 
-    enum class DecayType
-    {
-        NO_DECAY,
-        LINEAR,
-        QUADRATIC,
-        CUBIC,
-        COUNT
-    };
+	enum class DecayType
+	{
+		NO_DECAY,
+		LINEAR,
+		QUADRATIC,
+		CUBIC,
+		COUNT
+	};
 
-    enum class AreaLightShape
-    {
-        RECTANGLE,
-        SPHERE,
-        COUNT
-    };
+	enum class AreaLightShape
+	{
+		RECTANGLE,
+		SPHERE,
+		COUNT
+	};
 
-    static const Type s_type = Type::LIGHT;
-
-    Light(const Scene& _scene, const IElement& _element);
+	Light(const Scene& _scene, const IElement& _element)
+		: Object(_scene, _element)
+	{
+		// Initialize the light properties here
+	}
 
 	// Light type
 	virtual LightType getLightType() const = 0;
@@ -329,6 +333,82 @@ struct Light : Object
 	virtual float getTopBarnDoor() const = 0;
 	virtual float getBottomBarnDoor() const = 0;
 	virtual bool doesEnableBarnDoor() const = 0;
+};
+
+struct Camera : Object
+{
+	enum class ProjectionType
+	{
+		PERSPECTIVE,
+		ORTHOGRAPHIC,
+		COUNT
+	};
+
+	enum class ApertureFormat
+	{
+		CUSTOMAPERTURE,
+		THEATRICAL,
+		SUPER16MM,
+		ACADEMY,
+		TVPROJECTION,
+		FULLAPERTURE,
+		PROJECTION35,
+		ANAMORPHIC,
+		PROJECTION70,
+		VISTAVISION,
+		DYNAVISION,
+		IMAX,
+		COUNT
+	};
+
+	enum class ApertureMode // Used to determine how to calculate the FOV
+	{
+		HORIZANDVERT,
+		HORIZONTAL,
+		VERTICAL,
+		FOCALLENGTH,
+		COUNT
+	};
+
+	enum class GateFit
+	{
+		NONE,
+		VERTICAL,
+		HORIZONTAL,
+		FILL,
+		OVERSCAN,
+		STRETCH,
+		COUNT
+	};
+
+	static const Type s_type = Type::CAMERA;
+
+	Camera(const Scene& _scene, const IElement& _element)
+		: Object(_scene, _element)
+	{
+	}
+
+	virtual Type getType() const { return Type::CAMERA; }
+	virtual ProjectionType getProjectionType() const = 0;
+	virtual ApertureMode getApertureMode() const = 0;
+
+	virtual double getFilmHeight() const = 0;
+	virtual double getFilmWidth() const = 0;
+
+	virtual double getAspectHeight() const = 0;
+	virtual double getAspectWidth() const = 0;
+
+	virtual double getNearPlane() const = 0;
+	virtual double getFarPlane() const = 0;
+	virtual bool doesAutoComputeClipPanes() const = 0;
+
+	virtual GateFit getGateFit() const = 0;
+	virtual double getFilmAspectRatio() const = 0;
+	virtual double getFocalLength() const = 0;
+	virtual double getFocusDistance() const = 0;
+
+	virtual Vec3 getBackgroundColor() const = 0;
+	virtual Vec3 getInterestPosition() const = 0;
 };
 
 struct Material : Object
@@ -583,22 +663,40 @@ struct GlobalSettings
 struct IScene
 {
 	virtual void destroy() = 0;
+
+	// Root Node
 	virtual const IElement* getRootElement() const = 0;
 	virtual const Object* getRoot() const = 0;
-	virtual const TakeInfo* getTakeInfo(const char* name) const = 0;
-	virtual int getGeometryCount() const = 0;
+
+	// Meshes
 	virtual int getMeshCount() const = 0;
-	virtual float getSceneFrameRate() const = 0;
-	virtual const GlobalSettings* getGlobalSettings() const = 0;
 	virtual const Mesh* getMesh(int index) const = 0;
+
+	// Geometry
+	virtual int getGeometryCount() const = 0;
 	virtual const Geometry* getGeometry(int index) const = 0;
+
+	// Animations
 	virtual int getAnimationStackCount() const = 0;
 	virtual const AnimationStack* getAnimationStack(int index) const = 0;
+
+	// Cameras
+	virtual int getCameraCount() const = 0;
+	virtual const Camera* getCamera(int index) const = 0;
+
+	// Scene Objects (Everything in scene)
 	virtual const Object* const* getAllObjects() const = 0;
 	virtual int getAllObjectCount() const = 0;
+
+	// Embedded files/Data
 	virtual int getEmbeddedDataCount() const = 0;
 	virtual DataView getEmbeddedData(int index) const = 0;
 	virtual DataView getEmbeddedFilename(int index) const = 0;
+
+	// Scene Misc
+	virtual const TakeInfo* getTakeInfo(const char* name) const = 0;
+	virtual float getSceneFrameRate() const = 0;
+	virtual const GlobalSettings* getGlobalSettings() const = 0;
 
 protected:
 	virtual ~IScene() {}

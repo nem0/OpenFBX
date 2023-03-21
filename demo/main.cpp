@@ -22,6 +22,7 @@ ofbx::IScene* g_scene = nullptr;
 const ofbx::IElement* g_selected_element = nullptr;
 const ofbx::Object* g_selected_object = nullptr;
 
+static char s_TimeString[256];
 
 template <int N>
 void toString(ofbx::DataView view, char (&out)[N])
@@ -609,7 +610,29 @@ bool init(const char* filepath)
 	fseek(fp, 0, SEEK_SET);
 	auto* content = new ofbx::u8[file_size];
 	fread(content, 1, file_size, fp);
+
+	// Start Timer
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+	LARGE_INTEGER start;
+	QueryPerformanceCounter(&start);
+
 	g_scene = ofbx::load((ofbx::u8*)content, file_size, (ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
+
+	// Stop Timer
+	LARGE_INTEGER stop;
+	QueryPerformanceCounter(&stop);
+	double elapsed = (double)(stop.QuadPart - start.QuadPart) / (double)frequency.QuadPart;
+snprintf(s_TimeString,
+    sizeof(s_TimeString),
+    "Loading took %f seconds (%.0f ms) to load %s file of size %d bytes (%f MB) \r ",
+    elapsed,
+    elapsed * 1000.0,
+    filepath,
+    file_size,
+    (double)file_size / (1024.0 * 1024.0));
+
+
 	if(!g_scene) {
         OutputDebugString(ofbx::getError());
     }
@@ -618,6 +641,9 @@ bool init(const char* filepath)
     }
 	delete[] content;
 	fclose(fp);
+
+	// Make the window title s_TimeString
+	SetWindowText(g_hWnd, s_TimeString);
 
 	return true;
 }
