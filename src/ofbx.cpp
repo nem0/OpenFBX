@@ -8,8 +8,13 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <iostream>
+#include <inttypes.h>
 
+
+#if __cplusplus >= 202002L
+#include <bit> // for std::bit_cast (C++20 and later)
+#endif
+#include <map>
 
 namespace ofbx
 {
@@ -87,7 +92,15 @@ struct Error
 	Error(const char* msg)
 	{
 		s_message = msg;
-		std::cout << msg << std::endl;
+	}
+
+	// Format a message with printf-style arguments.
+	template <typename... Args>
+	Error(const char* fmt, Args... args)
+	{
+		char buf[1024];
+		sprintf_s(buf, fmt, args...);
+		s_message = buf;
 	}
 
 	static const char* s_message;
@@ -354,6 +367,11 @@ u32 DataView::toU32() const
 	return (u32)atoll((const char*)begin);
 }
 
+bool DataView::toBool() const
+{
+	return toInt() != 0;
+}
+
 
 double DataView::toDouble() const
 {
@@ -597,7 +615,7 @@ static OptionalError<DataView> readLongString(Cursor* cursor)
 'D': Double precision floating-point number
 'L': 64-bit signed integer
 'R': Binary data
-'b', 'f', 'd', 'l', and 'i': Arrays of binary data
+'b', 'f', 'd', 'l', 'c' and 'i': Arrays of binary data
 
 Src: https://code.blender.org/2013/08/fbx-binary-file-format-specification/
 */
@@ -652,17 +670,16 @@ static OptionalError<Property*> readProperty(Cursor* cursor, Allocator& allocato
 		}
 		default:
 		{
-			std::string str;
-			str += "Unknown property type: ";
-			str += prop->type;
-			return Error(str.c_str());
+			char str[32];
+			snprintf(str, sizeof(str), "Unknown property type: %c", prop->type);
+			return Error(str);
 		}
 	}
 	prop->value.end = cursor->current;
 	return prop;
 }
 
-static OptionalError<u64> readElementOffset(Cursor* cursor, u16 version)
+static OptionalError<u64> readElementOffset(Cursor* cursor, u32 version)
 {
 	if (version >= 7500)
 	{
@@ -994,8 +1011,15 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& versio
 	cursor.current = data;
 	cursor.end = data + size;
 
-	const Header* header = reinterpret_cast<const Header*>(cursor.current);
-	cursor.current += sizeof(*header);
+#if __cplusplus >= 202002L
+	const Header* header = std::bit_cast<const Header*>(cursor.current);
+#else
+	Header header_temp;
+	std::memcpy(&header_temp, cursor.current, sizeof(Header));
+	const Header* header = &header_temp;
+#endif
+
+	cursor.current += sizeof(Header);
 	version = header->version;
 
 	Element* root = allocator.allocate<Element>();
@@ -1563,6 +1587,198 @@ struct TextureImpl : Texture
 	Type getType() const override { return Type::TEXTURE; }
 };
 
+struct LightImpl : Light
+{
+	LightImpl(const Scene& _scene, const IElement& _element)
+		: Light(_scene, _element)
+	{
+		// Initialize the light properties here
+	}
+
+	Type getType() const override { return Type::LIGHT; }
+
+	// Light type
+	LightType getLightType() const override { return lightType; }
+
+	// Light properties
+	bool doesCastLight() const override { return castLight; }
+
+	bool doesDrawVolumetricLight() const override
+	{
+		// Return the draw volumetric light property based on the stored data (WIP)
+		return false;
+	}
+
+	bool doesDrawGroundProjection() const override
+	{
+		// Return the draw ground projection property based on the stored data (WIP)
+		return false;
+	}
+
+	bool doesDrawFrontFacingVolumetricLight() const override
+	{
+		// Return the draw front-facing volumetric light property based on the stored data (WIP)
+		return false;
+	}
+
+	Vec3 getColor() const override { return color; }
+	double getIntensity() const override { return intensity; }
+	double getInnerAngle() const override { return innerAngle; }
+	double getOuterAngle() const override { return outerAngle; }
+
+	double getFog() const override { return fog; }
+
+	DecayType getDecayType() const override { return decayType; }
+	double getDecayStart() const override { return decayStart; }
+
+	// Near attenuation
+	bool doesEnableNearAttenuation() const override { return enableNearAttenuation; }
+	double getNearAttenuationStart() const override { return nearAttenuationStart; }
+	double getNearAttenuationEnd() const override { return nearAttenuationEnd; }
+
+	// Far attenuation
+	bool doesEnableFarAttenuation() const override { return enableFarAttenuation; }
+	double getFarAttenuationStart() const override { return farAttenuationStart; }
+	double getFarAttenuationEnd() const override { return farAttenuationEnd; }
+
+	// Shadows
+	const Texture* getShadowTexture() const override { return shadowTexture; }
+	bool doesCastShadows() const override { return castShadows; }
+	Vec3 getShadowColor() const override { return shadowColor; }
+
+	// Area light shape
+	AreaLightShape getAreaLightShape() const override { return areaLightShape; }
+
+	// Barn doors
+	float getLeftBarnDoor() const override { return leftBarnDoor; }
+	float getRightBarnDoor() const override { return rightBarnDoor; }
+	float getTopBarnDoor() const override { return topBarnDoor; }
+	float getBottomBarnDoor() const override { return bottomBarnDoor; }
+	bool doesEnableBarnDoor() const override { return enableBarnDoor; }
+
+	// Member variables to store light properties
+	//-------------------------------------------------------------------------
+	LightType lightType = LightType::POINT; // Light type
+	bool castLight = true;					// Whether the light casts light on objects
+	Vec3 color = {1, 1, 1};					// Light color (RGB values)
+	double intensity = 100.0;				// Light intensity
+
+	// Spotlight properties
+	double innerAngle = 0.0;
+	double outerAngle = 45.0;
+
+	// Light fog intensity
+	double fog = 50;
+
+	// Light decay properties
+	DecayType decayType = DecayType::QUADRATIC;
+	double decayStart = 1.0;
+
+	// Near attenuation properties
+	bool enableNearAttenuation = false;
+	double nearAttenuationStart = 0.0;
+	double nearAttenuationEnd = 0.0;
+
+	// Far attenuation properties
+	bool enableFarAttenuation = false;
+	double farAttenuationStart = 0.0;
+	double farAttenuationEnd = 0.0;
+
+	// Shadow properties
+	const Texture* shadowTexture = nullptr;
+	bool castShadows = true;
+	Vec3 shadowColor = {0, 0, 0};
+
+	// Area light properties
+	AreaLightShape areaLightShape = AreaLightShape::RECTANGLE;
+
+	// Barn door properties
+	float leftBarnDoor = 20.0;
+	float rightBarnDoor = 20.0;
+	float topBarnDoor = 20.0;
+	float bottomBarnDoor = 20.0;
+	bool enableBarnDoor = true;
+};
+
+static float M_PI = 3.14159265358979323846f;
+struct CameraImpl : public Camera
+{
+    CameraImpl(const Scene& _scene, const IElement& _element)
+        : Camera(_scene, _element)
+    {
+        // Initialize camera properties here
+    }
+
+    // Member variables to store camera properties
+    //-------------------------------------------------------------------------
+	ProjectionType projectionType = ProjectionType::PERSPECTIVE; // Projection type
+	ApertureMode apertureMode = ApertureMode::HORIZONTAL; // Used to determine the FOV
+
+	double filmHeight = 36.0;
+	double filmWidth = 24.0;
+
+	double aspectHeight = 1.0;
+	double aspectWidth = 1.0;
+
+	double nearPlane = 0.1;
+	double farPlane = 1000.0;
+	bool autoComputeClipPanes = true;
+	
+	GateFit gateFit = GateFit::HORIZONTAL;
+	double filmAspectRatio = 1.0;
+	double focalLength = 50.0;
+	double focusDistance = 50.0;
+	
+	Vec3 backgroundColor = {0, 0, 0};
+	Vec3 interestPosition = {0, 0, 0};
+
+	double fieldOfView = 60.0;
+
+	// Member functions to get camera properties
+	//-------------------------------------------------------------------------
+	Type getType() const override { return Type::CAMERA; }
+	ProjectionType getProjectionType() const override { return projectionType; }
+	ApertureMode getApertureMode() const override { return apertureMode; }
+
+	double getFilmHeight() const override { return filmHeight; }
+	double getFilmWidth() const override { return filmWidth; }
+
+	double getAspectHeight() const override { return aspectHeight; }
+	double getAspectWidth() const override { return aspectWidth; }
+
+	double getNearPlane() const override { return nearPlane; }
+	double getFarPlane() const override { return farPlane; }
+	bool doesAutoComputeClipPanes() const override { return autoComputeClipPanes; }
+
+	GateFit getGateFit() const override { return gateFit; }
+	double getFilmAspectRatio() const override { return filmAspectRatio; }
+	double getFocalLength() const override { return focalLength; }
+	double getFocusDistance() const override { return focusDistance; }
+
+	Vec3 getBackgroundColor() const override { return backgroundColor; }
+	Vec3 getInterestPosition() const override { return interestPosition; }
+
+	void CalculateFOV()
+	{
+		switch (apertureMode)
+		{
+			case Camera::ApertureMode::HORIZONTAL:
+				fieldOfView =  2.0 * atan(filmWidth / (2.0 * focalLength)) * 180.0 / M_PI;
+				return;
+			case Camera::ApertureMode::VERTICAL:
+				fieldOfView =  2.0 * atan(filmHeight / (2.0 * focalLength)) * 180.0 / M_PI;
+				return;
+			case Camera::ApertureMode::HORIZANDVERT:
+				fieldOfView =  2.0 * atan(sqrt(filmWidth * filmWidth + filmHeight * filmHeight) / (2.0 * focalLength)) * 180.0 / M_PI;
+				return;
+			case Camera::ApertureMode::FOCALLENGTH:
+				fieldOfView =  2.0 * atan(filmHeight / (2.0 * focalLength)) * 180.0 / M_PI; // Same as vertical ¯\_(ツ)_/¯
+				return;
+			default:
+				fieldOfView =  60.0;
+		}
+	}
+};
 
 struct Root : Object
 {
@@ -1658,6 +1874,19 @@ struct Scene : IScene
 		return nullptr;
 	}
 
+	// Cameras
+	const Camera* getCamera(int index) const override
+	{
+		assert(index >= 0);
+		assert(index < m_cameras.size());
+		return m_cameras[index];
+	}
+
+	int getCameraCount() const override
+	{
+		return (int)m_cameras.size();
+	}
+
 
 	const IElement* getRootElement() const override { return m_root_element; }
 	const Object* getRoot() const override { return m_root; }
@@ -1681,6 +1910,8 @@ struct Scene : IScene
 	std::vector<Mesh*> m_meshes;
 	std::vector<Geometry*> m_geometries;
 	std::vector<AnimationStack*> m_animation_stacks;
+	std::vector<Camera*> m_cameras;
+	std::vector<Light*> m_lights;
 	std::vector<Connection> m_connections;
 	std::vector<u8> m_data;
 	std::vector<TakeInfo> m_take_infos;
@@ -1829,6 +2060,33 @@ struct AnimationLayerImpl : AnimationLayer
 	std::vector<AnimationCurveNodeImpl*> curve_nodes;
 };
 
+/*
+	DEBUGGING ONLY (but im not your boss so do what you want)
+	- maps the contents of the given node for viewing in the debugger
+	
+	std::map<std::string, ofbx::IElementProperty*, std::less<>> allProperties;
+	mapProperties(element, allProperties);
+*/
+void mapProperties(const ofbx::IElement& parent, std::map<std::string, ofbx::IElementProperty*, std::less<>>& propMap)
+{
+	for (const ofbx::IElement* element = parent.getFirstChild(); element; element = element->getSibling())
+	{
+		char key[32];
+
+		if (element->getFirstProperty())
+			element->getFirstProperty()->getValue().toString(key);
+		else
+			element->getID().toString(key);
+
+
+		ofbx::IElementProperty* prop = element->getFirstProperty();
+		propMap.insert({key, prop});
+
+		if (element->getFirstChild()) mapProperties(*element, propMap);
+	}
+};
+
+
 void parseVideo(Scene& scene, const Element& element, Allocator& allocator)
 {
 	if (!element.first_property) return;
@@ -1876,6 +2134,89 @@ struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& el
 	return texture;
 }
 
+struct OptionalError<Object*> parseLight(const Scene& scene, const Element& element, Allocator& allocator) {
+	LightImpl* light = allocator.allocate<LightImpl>(scene, element);
+
+	// Light impl specific properties (WIP)
+
+	return light;
+}
+
+struct OptionalError<Object*> parseCamera(Scene& scene, const Element& element, Allocator& allocator)
+{
+	CameraImpl* camera = allocator.allocate<CameraImpl>(scene, element);
+
+	camera->apertureMode = static_cast<Camera::ApertureMode>(resolveEnumProperty(*camera, "ApertureMode", (int)Camera::ApertureMode::HORIZANDVERT)); // ApertureMode
+	camera->gateFit = static_cast<Camera::GateFit>(resolveEnumProperty(*camera, "GateFit", (int)Camera::GateFit::HORIZONTAL)); // GateFit
+
+	const Element* prop = findChild(element, "Properties70");
+	if (prop) prop = prop->child;
+
+	// Can be replaced with a std::map for a Big O of O(log n) instead of O(n) for the if else statements - Possibly faster
+	while (prop)
+	{
+		if (prop->id == "P" && prop->first_property)
+		{
+			if (prop->first_property->value == "InterestPosition")
+			{
+				camera->interestPosition.x = (float)prop->getProperty(4)->getValue().toDouble();
+				camera->interestPosition.y = (float)prop->getProperty(5)->getValue().toDouble();
+				camera->interestPosition.z = (float)prop->getProperty(6)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "BackgroundColor")
+			{
+				camera->backgroundColor.x = (float)prop->getProperty(4)->getValue().toDouble();
+				camera->backgroundColor.y = (float)prop->getProperty(5)->getValue().toDouble();
+				camera->backgroundColor.z = (float)prop->getProperty(6)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FocalLength")
+			{
+				camera->focalLength = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FocusDistance")
+			{
+				camera->focusDistance = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FilmAspectRatio")
+			{
+				camera->filmAspectRatio = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FilmWidth")
+			{
+				camera->filmWidth = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FilmHeight")
+			{
+				camera->filmHeight = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "AspectHeight")
+			{
+				camera->aspectHeight = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "AspectWidth")
+			{
+				camera->aspectWidth = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "AutoComputeClipPanes")
+			{
+				camera->autoComputeClipPanes = prop->getProperty(4)->getValue().toBool();
+			}
+			else if (prop->first_property->value == "NearPlane")
+			{
+				camera->nearPlane = prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "FarPlane")
+			{
+				camera->farPlane = prop->getProperty(4)->getValue().toDouble();
+			}
+		}
+		prop = prop->sibling;
+	}
+
+	camera->CalculateFOV();
+	scene.m_cameras.push_back(camera); // Implicit inheritance downcast
+	return camera;
+}
 
 struct OptionalError<Object*> parsePose(const Scene& scene, const Element& element, Allocator& allocator)
 {
@@ -3162,7 +3503,25 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 		}
 		else if (iter.second.element->id == "NodeAttribute")
 		{
-			obj = parseNodeAttribute(*scene, *iter.second.element, allocator);
+
+			// Add the support for lights and camera here.
+			Property* last_prop = iter.second.element->first_property;
+			while (last_prop->next) last_prop = last_prop->next;
+			if (last_prop)
+			{
+				if (last_prop->value == "Light")
+				{
+					obj = parseLight(*scene, *iter.second.element, allocator);
+				}
+				else if (last_prop->value == "Camera")
+				{
+					obj = parseCamera(*scene, *iter.second.element, allocator);
+				}
+			}
+			else
+			{
+				obj = parseNodeAttribute(*scene, *iter.second.element, allocator);
+			}
 		}
 		else if (iter.second.element->id == "Model")
 		{
