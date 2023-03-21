@@ -280,13 +280,6 @@ public:
 		COUNT
 	};
 
-	enum class AreaLightShape
-	{
-		RECTANGLE,
-		SPHERE,
-		COUNT
-	};
-
 	Light(const Scene& _scene, const IElement& _element)
 		: Object(_scene, _element)
 	{
@@ -323,16 +316,6 @@ public:
 	virtual const Texture* getShadowTexture() const = 0;
 	virtual bool doesCastShadows() const = 0;
 	virtual Color getShadowColor() const = 0;
-
-	// Area light shape
-	virtual AreaLightShape getAreaLightShape() const = 0;
-
-	// Barn doors
-	virtual float getLeftBarnDoor() const = 0;
-	virtual float getRightBarnDoor() const = 0;
-	virtual float getTopBarnDoor() const = 0;
-	virtual float getBottomBarnDoor() const = 0;
-	virtual bool doesEnableBarnDoor() const = 0;
 };
 
 struct Camera : Object
