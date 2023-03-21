@@ -95,13 +95,13 @@ struct Error
 	}
 
 	// Format a message with printf-style arguments.
-	template <typename... Args>
-	Error(const char* fmt, Args... args)
+    template <typename... Args>
+    Error(const char* fmt, Args... args) 
 	{
-		char buf[1024];
-		sprintf_s(buf, fmt, args...);
-		s_message = buf;
-	}
+        char buf[1024];
+        std::snprintf(buf, sizeof(buf), fmt, args...);
+        s_message = buf;
+    }
 
 	static const char* s_message;
 };
@@ -1030,7 +1030,7 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& versio
 	root->sibling = nullptr;
 
 	Element** element = &root->child;
-	while (true)
+	for (;;)
 	{
 		OptionalError<Element*> child = readElement(&cursor, header->version, allocator);
 		if (child.isError())
@@ -1646,16 +1646,6 @@ struct LightImpl : Light
 	bool doesCastShadows() const override { return castShadows; }
 	Color getShadowColor() const override { return shadowColor; }
 
-	// Area light shape
-	AreaLightShape getAreaLightShape() const override { return areaLightShape; }
-
-	// Barn doors
-	float getLeftBarnDoor() const override { return leftBarnDoor; }
-	float getRightBarnDoor() const override { return rightBarnDoor; }
-	float getTopBarnDoor() const override { return topBarnDoor; }
-	float getBottomBarnDoor() const override { return bottomBarnDoor; }
-	bool doesEnableBarnDoor() const override { return enableBarnDoor; }
-
 	// Member variables to store light properties
 	//-------------------------------------------------------------------------
 	LightType lightType = LightType::POINT; // Light type
@@ -1688,16 +1678,6 @@ struct LightImpl : Light
 	const Texture* shadowTexture = nullptr;
 	bool castShadows = true;
 	Color shadowColor = {0, 0, 0};
-
-	// Area light properties
-	AreaLightShape areaLightShape = AreaLightShape::RECTANGLE;
-
-	// Barn door properties
-	float leftBarnDoor = 20.0;
-	float rightBarnDoor = 20.0;
-	float topBarnDoor = 20.0;
-	float bottomBarnDoor = 20.0;
-	bool enableBarnDoor = true;
 };
 
 static float M_PI = 3.14159265358979323846f;
@@ -2138,7 +2118,7 @@ struct OptionalError<Object*> parseLight(Scene& scene, const Element& element, A
 {
 	LightImpl* light = allocator.allocate<LightImpl>(scene, element);
 
-	light->lightType = static_cast<Light::LightType>(resolveEnumProperty(*light, "LightType", (int)Light::LightType::POINT)); // ApertureMode
+	light->lightType = static_cast<Light::LightType>(resolveEnumProperty(*light, "LightType", (int)Light::LightType::POINT));
 
 	const Element* prop = findChild(element, "Properties70");
 	if (prop) prop = prop->child;
@@ -2188,6 +2168,7 @@ struct OptionalError<Object*> parseCamera(Scene& scene, const Element& element, 
 {
 	CameraImpl* camera = allocator.allocate<CameraImpl>(scene, element);
 
+	camera->projectionType = static_cast<Camera::ProjectionType>(resolveEnumProperty(*camera, "ProjectionType", (int)Camera::ProjectionType::PERSPECTIVE)); // ProjectionType
 	camera->apertureMode = static_cast<Camera::ApertureMode>(resolveEnumProperty(*camera, "ApertureMode", (int)Camera::ApertureMode::HORIZANDVERT)); // ApertureMode
 	camera->gateFit = static_cast<Camera::GateFit>(resolveEnumProperty(*camera, "GateFit", (int)Camera::GateFit::HORIZONTAL)); // GateFit
 
