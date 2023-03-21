@@ -1867,6 +1867,19 @@ struct Scene : IScene
 		return (int)m_cameras.size();
 	}
 
+	// Lights
+	const Light* getLight(int index) const override
+	{
+		assert(index >= 0);
+		assert(index < m_lights.size());
+		return m_lights[index];
+	}
+
+	int getLightCount() const override
+	{
+		return (int)m_lights.size();
+	}
+
 
 	const IElement* getRootElement() const override { return m_root_element; }
 	const Object* getRoot() const override { return m_root; }
