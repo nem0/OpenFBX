@@ -591,7 +591,8 @@ void initImGUI()
 
 bool init(const char* filepath)
 {
-	g_hWnd = CreateOpenGLWindow("openfbx info viewer", 0, 0, 800, 600, PFD_TYPE_RGBA, 0);
+	char windowName[32] = "openfbx info viewer";
+	g_hWnd = CreateOpenGLWindow(windowName, 0, 0, 1200, 800, PFD_TYPE_RGBA, 0);
 	if (g_hWnd == NULL) return false;
 
 	g_hDC = GetDC(g_hWnd);
