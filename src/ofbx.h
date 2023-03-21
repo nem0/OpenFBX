@@ -327,23 +327,6 @@ struct Camera : Object
 		COUNT
 	};
 
-	enum class ApertureFormat
-	{
-		CUSTOMAPERTURE,
-		THEATRICAL,
-		SUPER16MM,
-		ACADEMY,
-		TVPROJECTION,
-		FULLAPERTURE,
-		PROJECTION35,
-		ANAMORPHIC,
-		PROJECTION70,
-		VISTAVISION,
-		DYNAVISION,
-		IMAX,
-		COUNT
-	};
-
 	enum class ApertureMode // Used to determine how to calculate the FOV
 	{
 		HORIZANDVERT,
@@ -666,6 +649,10 @@ struct IScene
 	// Cameras
 	virtual int getCameraCount() const = 0;
 	virtual const Camera* getCamera(int index) const = 0;
+
+	// Lights
+	virtual int getLightCount() const = 0;
+	virtual const Light* getLight(int index) const = 0;
 
 	// Scene Objects (Everything in scene)
 	virtual const Object* const* getAllObjects() const = 0;
