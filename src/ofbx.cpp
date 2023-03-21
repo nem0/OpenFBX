@@ -1621,7 +1621,7 @@ struct LightImpl : Light
 		return false;
 	}
 
-	Vec3 getColor() const override { return color; }
+	Color getColor() const override { return color; }
 	double getIntensity() const override { return intensity; }
 	double getInnerAngle() const override { return innerAngle; }
 	double getOuterAngle() const override { return outerAngle; }
@@ -1644,7 +1644,7 @@ struct LightImpl : Light
 	// Shadows
 	const Texture* getShadowTexture() const override { return shadowTexture; }
 	bool doesCastShadows() const override { return castShadows; }
-	Vec3 getShadowColor() const override { return shadowColor; }
+	Color getShadowColor() const override { return shadowColor; }
 
 	// Area light shape
 	AreaLightShape getAreaLightShape() const override { return areaLightShape; }
@@ -1660,7 +1660,7 @@ struct LightImpl : Light
 	//-------------------------------------------------------------------------
 	LightType lightType = LightType::POINT; // Light type
 	bool castLight = true;					// Whether the light casts light on objects
-	Vec3 color = {1, 1, 1};					// Light color (RGB values)
+	Color color = {1, 1, 1};					// Light color (RGB values)
 	double intensity = 100.0;				// Light intensity
 
 	// Spotlight properties
@@ -1687,7 +1687,7 @@ struct LightImpl : Light
 	// Shadow properties
 	const Texture* shadowTexture = nullptr;
 	bool castShadows = true;
-	Vec3 shadowColor = {0, 0, 0};
+	Color shadowColor = {0, 0, 0};
 
 	// Area light properties
 	AreaLightShape areaLightShape = AreaLightShape::RECTANGLE;
@@ -2134,11 +2134,53 @@ struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& el
 	return texture;
 }
 
-struct OptionalError<Object*> parseLight(const Scene& scene, const Element& element, Allocator& allocator) {
+struct OptionalError<Object*> parseLight(Scene& scene, const Element& element, Allocator& allocator)
+{
 	LightImpl* light = allocator.allocate<LightImpl>(scene, element);
 
-	// Light impl specific properties (WIP)
+	light->lightType = static_cast<Light::LightType>(resolveEnumProperty(*light, "LightType", (int)Light::LightType::POINT)); // ApertureMode
 
+	const Element* prop = findChild(element, "Properties70");
+	if (prop) prop = prop->child;
+
+	// Can be replaced with a std::map for a Big O of O(log n) instead of O(n) for the if else statements - Possibly faster
+	while (prop)
+	{
+		if (prop->id == "P" && prop->first_property)
+		{
+			if (prop->first_property->value == "Color")
+			{
+				light->color.r = (float)prop->getProperty(4)->getValue().toDouble();
+				light->color.g = (float)prop->getProperty(5)->getValue().toDouble();
+				light->color.b = (float)prop->getProperty(6)->getValue().toDouble();
+			}
+			if (prop->first_property->value == "ShadowColor")
+			{
+				light->shadowColor.r = (float)prop->getProperty(4)->getValue().toDouble();
+				light->shadowColor.g = (float)prop->getProperty(5)->getValue().toDouble();
+				light->shadowColor.b = (float)prop->getProperty(6)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "CastShadows")
+			{
+				light->castShadows = prop->getProperty(4)->getValue().toBool();
+			}
+			else if (prop->first_property->value == "InnerAngle")
+			{
+				light->innerAngle = (float)prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "OuterAngle")
+			{
+				light->outerAngle = (float)prop->getProperty(4)->getValue().toDouble();
+			}
+			else if (prop->first_property->value == "Intensity")
+			{
+				light->intensity = (float)prop->getProperty(4)->getValue().toDouble();
+			}
+		}
+		prop = prop->sibling;
+	}
+
+	scene.m_lights.push_back(light); // Implicit inheritance downcast
 	return light;
 }
 

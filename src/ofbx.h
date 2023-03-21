@@ -301,7 +301,7 @@ public:
 	virtual bool doesDrawVolumetricLight() const = 0;
 	virtual bool doesDrawGroundProjection() const = 0;
 	virtual bool doesDrawFrontFacingVolumetricLight() const = 0;
-	virtual Vec3 getColor() const = 0;
+	virtual Color getColor() const = 0;
 	virtual double getIntensity() const = 0;
 	virtual double getInnerAngle() const = 0;
 	virtual double getOuterAngle() const = 0;
@@ -322,7 +322,7 @@ public:
 	// Shadows
 	virtual const Texture* getShadowTexture() const = 0;
 	virtual bool doesCastShadows() const = 0;
-	virtual Vec3 getShadowColor() const = 0;
+	virtual Color getShadowColor() const = 0;
 
 	// Area light shape
 	virtual AreaLightShape getAreaLightShape() const = 0;
