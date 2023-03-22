@@ -3445,12 +3445,27 @@ void sync_job_processor(JobFunction fn, void*, void* data, u32 size, u32 count) 
 	}
 }
 
-static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator& allocator, JobProcessor job_processor, void* job_user_ptr)
+static bool parseObjects(const Element& root, Scene* scene, u16 flags, Allocator& allocator, JobProcessor job_processor, void* job_user_ptr)
 {
 	if (!job_processor) job_processor = &sync_job_processor;
-	const bool triangulate = (flags & (u64)LoadFlags::TRIANGULATE) != 0;
-	const bool ignore_geometry = (flags & (u64)LoadFlags::IGNORE_GEOMETRY) != 0;
-	const bool ignore_blend_shapes = (flags & (u64)LoadFlags::IGNORE_BLEND_SHAPES) != 0;
+	const bool triangulate = (flags & (u16)LoadFlags::TRIANGULATE) != 0;
+
+	const bool ignore_geometry = (flags & (u16)LoadFlags::IGNORE_GEOMETRY) != 0;
+	const bool ignore_blend_shapes = (flags & (u16)LoadFlags::IGNORE_BLEND_SHAPES) != 0;
+	const bool ignore_cameras = (flags & (u16)LoadFlags::IGNORE_CAMERAS) != 0;
+	const bool ignore_lights = (flags & (u16)LoadFlags::IGNORE_LIGHTS) != 0;
+	const bool ignore_textures = (flags & (u16)LoadFlags::IGNORE_TEXTURES) != 0;
+	const bool ignore_skin = (flags & (u16)LoadFlags::IGNORE_SKIN) != 0;
+	const bool ignore_bones = (flags & (u16)LoadFlags::IGNORE_BONES) != 0;
+	const bool ignore_pivots = (flags & (u16)LoadFlags::IGNORE_PIVOTS) != 0;
+	const bool ignore_animations = (flags & (u16)LoadFlags::IGNORE_ANIMATIONS) != 0;
+	const bool ignore_materials = (flags & (u16)LoadFlags::IGNORE_MATERIALS) != 0;
+	const bool ignore_poses = (flags & (u16)LoadFlags::IGNORE_POSES) != 0;
+	const bool ignore_videos = (flags & (u16)LoadFlags::IGNORE_VIDEOS) != 0;
+	const bool ignore_limbs = (flags & (u16)LoadFlags::IGNORE_LIMBS) != 0;
+	const bool ignore_meshes = (flags & (u16)LoadFlags::IGNORE_MESHES) != 0;
+	const bool ignore_models = (flags & (u16)LoadFlags::IGNORE_MODELS) != 0;
+
 	const Element* objs = findChild(root, "Objects");
 	if (!objs) return true;
 
@@ -3479,11 +3494,11 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 
 		if (iter.second.object == scene->m_root) continue;
 
-		if (iter.second.element->id == "Geometry")
+		if (iter.second.element->id == "Geometry" && !ignore_geometry)
 		{
 			Property* last_prop = iter.second.element->first_property;
 			while (last_prop->next) last_prop = last_prop->next;
-			if (last_prop && last_prop->value == "Mesh" && !ignore_geometry)
+			if (last_prop && last_prop->value == "Mesh")
 			{
 				GeometryImpl* geom = allocator.allocate<GeometryImpl>(*scene, *iter.second.element);
 				scene->m_geometries.push_back(geom);
@@ -3491,16 +3506,16 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				parse_geom_jobs.push_back(job);
 				continue;
 			}
-			if (last_prop && last_prop->value == "Shape" && !ignore_geometry)
+			if (last_prop && last_prop->value == "Shape")
 			{
 				obj = allocator.allocate<ShapeImpl>(*scene, *iter.second.element);
 			}
 		}
-		else if (iter.second.element->id == "Material")
+		else if (iter.second.element->id == "Material" && !ignore_materials)
 		{
 			obj = parseMaterial(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "AnimationStack")
+		else if (iter.second.element->id == "AnimationStack" && !ignore_animations)
 		{
 			obj = parse<AnimationStackImpl>(*scene, *iter.second.element, allocator);
 			if (!obj.isError())
@@ -3509,19 +3524,19 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				scene->m_animation_stacks.push_back(stack);
 			}
 		}
-		else if (iter.second.element->id == "AnimationLayer")
+		else if (iter.second.element->id == "AnimationLayer" && !ignore_animations)
 		{
 			obj = parse<AnimationLayerImpl>(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "AnimationCurve")
+		else if (iter.second.element->id == "AnimationCurve" && !ignore_animations)
 		{
 			obj = parseAnimationCurve(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "AnimationCurveNode")
+		else if (iter.second.element->id == "AnimationCurveNode" && !ignore_animations)
 		{
 			obj = parse<AnimationCurveNodeImpl>(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "Deformer")
+		else if (iter.second.element->id == "Deformer" && !ignore_blend_shapes)
 		{
 			IElementProperty* class_prop = iter.second.element->getProperty(2);
 
@@ -3545,11 +3560,11 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 			while (last_prop->next) last_prop = last_prop->next;
 			if (last_prop)
 			{
-				if (last_prop->value == "Light")
+				if (last_prop->value == "Light" && !ignore_lights)
 				{
 					obj = parseLight(*scene, *iter.second.element, allocator);
 				}
-				else if (last_prop->value == "Camera")
+				else if (last_prop->value == "Camera" && !ignore_cameras)
 				{
 					obj = parseCamera(*scene, *iter.second.element, allocator);
 				}
@@ -3559,13 +3574,13 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 				obj = parseNodeAttribute(*scene, *iter.second.element, allocator);
 			}
 		}
-		else if (iter.second.element->id == "Model")
+		else if (iter.second.element->id == "Model" && !ignore_models)
 		{
 			IElementProperty* class_prop = iter.second.element->getProperty(2);
 
 			if (class_prop)
 			{
-				if (class_prop->getValue() == "Mesh")
+				if (class_prop->getValue() == "Mesh" && !ignore_meshes)
 				{
 					obj = parseMesh(*scene, *iter.second.element, allocator);
 					if (!obj.isError())
@@ -3575,21 +3590,21 @@ static bool parseObjects(const Element& root, Scene* scene, u64 flags, Allocator
 						obj = mesh;
 					}
 				}
-				else if (class_prop->getValue() == "LimbNode")
+				else if (class_prop->getValue() == "LimbNode" && !ignore_limbs)
 					obj = parseLimbNode(*scene, *iter.second.element, allocator);
 				else
 					obj = parse<NullImpl>(*scene, *iter.second.element, allocator);
 			}
 		}
-		else if (iter.second.element->id == "Texture")
+		else if (iter.second.element->id == "Texture" && !ignore_textures)
 		{
 			obj = parseTexture(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "Video")
+		else if (iter.second.element->id == "Video" && !ignore_videos)
 		{
 			parseVideo(*scene, *iter.second.element, allocator);
 		}
-		else if (iter.second.element->id == "Pose")
+		else if (iter.second.element->id == "Pose" && !ignore_poses)
 		{
 			obj = parsePose(*scene, *iter.second.element, allocator);
 		}
@@ -4038,7 +4053,7 @@ Object* Object::getParent() const
 }
 
 
-IScene* load(const u8* data, int size, u64 flags, JobProcessor job_processor, void* job_user_ptr)
+IScene* load(const u8* data, int size, u16 flags, JobProcessor job_processor, void* job_user_ptr)
 {
 	std::unique_ptr<Scene> scene(new Scene());
 	scene->m_data.resize(size);

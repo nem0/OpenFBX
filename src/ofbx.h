@@ -25,12 +25,36 @@ static_assert(sizeof(i64) == 8, "i64 is not 8 bytes");
 using JobFunction = void (*)(void*);
 using JobProcessor = void (*)(JobFunction, void*, void*, u32, u32);
 
-enum class LoadFlags : u64 {
+// Ignoring certain nodes will only stop them from being processed not tokenised (i.e. they will still be in the tree)
+enum class LoadFlags : u16
+{
 	TRIANGULATE = 1 << 0,
 	IGNORE_GEOMETRY = 1 << 1,
 	IGNORE_BLEND_SHAPES = 1 << 2,
+	IGNORE_CAMERAS = 1 << 3,
+	IGNORE_LIGHTS = 1 << 4,
+	IGNORE_TEXTURES = 1 << 5,
+	IGNORE_SKIN = 1 << 6,
+	IGNORE_BONES = 1 << 7,
+	IGNORE_PIVOTS = 1 << 8,
+	IGNORE_ANIMATIONS = 1 << 9,
+	IGNORE_MATERIALS = 1 << 10,
+	IGNORE_POSES = 1 << 11,
+	IGNORE_VIDEOS = 1 << 12,
+	IGNORE_LIMBS = 1 << 13,
+	IGNORE_MESHES = 1 << 14,
+	IGNORE_MODELS = 1 << 15,
 };
 
+constexpr LoadFlags operator|(LoadFlags lhs, LoadFlags rhs)
+{
+	return static_cast<LoadFlags>(static_cast<u16>(lhs) | static_cast<u16>(rhs));
+}
+
+constexpr LoadFlags& operator|=(LoadFlags& lhs, LoadFlags rhs)
+{
+	return lhs = lhs | rhs;
+}
 
 struct Vec2
 {
@@ -673,7 +697,7 @@ protected:
 };
 
 
-IScene* load(const u8* data, int size, u64 flags, JobProcessor job_processor = nullptr, void* job_user_ptr = nullptr);
+IScene* load(const u8* data, int size, u16 flags, JobProcessor job_processor = nullptr, void* job_user_ptr = nullptr);
 const char* getError();
 double fbxTimeToSeconds(i64 value);
 i64 secondsToFbxTime(double value);
