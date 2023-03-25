@@ -2971,6 +2971,8 @@ static OptionalError<Object*> parseGeometryMaterials(
 		const Element* reference_element = findChild(*layer_material_element, "ReferenceInformationType");
 
 		if (!mapping_element || !reference_element) return Error("Invalid LayerElementMaterial");
+		if (!mapping_element->first_property) return Error("Invalid LayerElementMaterial");
+		if (!reference_element->first_property) return Error("Invalid LayerElementMaterial");
 
 		if (mapping_element->first_property->value == "ByPolygon" &&
 			reference_element->first_property->value == "IndexToDirect")
