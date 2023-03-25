@@ -2263,7 +2263,9 @@ struct OptionalError<Object*> parsePose(const Scene& scene, const Element& eleme
 		const Element* matrix = findChild(*pose_node, "Matrix");
 
 		if (matrix->first_property) {
-			parseArrayRaw(*matrix->first_property, &pose->matrix, sizeof(pose->matrix));
+			if (!parseArrayRaw(*matrix->first_property, &pose->matrix, sizeof(pose->matrix))) {
+				return Error("Failed to parse pose");
+			}
 		}
 		pose->node_id = node->first_property->value;
 	}
