@@ -1,5 +1,6 @@
 [![Discord Chat](https://img.shields.io/discord/480318777943392266.svg)](https://discord.gg/RgFybs6) 
 [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
+![build status](https://github.com/nem0/openfbx/actions/workflows/build.yml/badge.svg)
 
 # OpenFBX
 
