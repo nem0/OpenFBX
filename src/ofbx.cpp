@@ -872,6 +872,14 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor, Allocator& allo
 		return prop;
 	}
 
+	if (*cursor->current == ',') {
+		// https://github.com/nem0/OpenFBX/issues/85
+		prop->type = IElementProperty::VOID;
+		prop->value.begin = cursor->current;
+		prop->value.end = cursor->current;
+		return prop;
+	}
+
 	if (*cursor->current == '*')
 	{
 		prop->type = 'l';
@@ -905,7 +913,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor, Allocator& allo
 	}
 
 	assert(false);
-	return Error("TODO");
+	return Error("Unknown error");
 }
 
 
