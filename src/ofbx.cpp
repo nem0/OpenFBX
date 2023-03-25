@@ -1015,7 +1015,7 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& versio
 	const Header* header = std::bit_cast<const Header*>(cursor.current);
 #else
 	Header header_temp;
-	std::memcpy(&header_temp, cursor.current, sizeof(Header));
+	memcpy(&header_temp, cursor.current, sizeof(Header));
 	const Header* header = &header_temp;
 #endif
 
