@@ -235,20 +235,19 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 		fprintf(fp, "o obj%d\ng grp%d\n", i, obj_idx);
 
 		const ofbx::Mesh& mesh = *scene.getMesh(i);
-		const ofbx::Geometry& geom = *mesh.getGeometry();
-		int vertex_count = geom.getVertexCount();
-		const ofbx::Vec3* vertices = geom.getVertices();
+		int vertex_count = mesh.getVertexCount();
+		const ofbx::Vec3* vertices = mesh.getVertices();
 		for (int i = 0; i < vertex_count; ++i)
 		{
 			ofbx::Vec3 v = vertices[i];
 			fprintf(fp, "v %f %f %f\n", v.x, v.y, v.z);
 		}
 
-		bool has_normals = geom.getNormals() != nullptr;
+		bool has_normals = mesh.getNormals() != nullptr;
 		if (has_normals)
 		{
-			const ofbx::Vec3* normals = geom.getNormals();
-			int count = geom.getIndexCount();
+			const ofbx::Vec3* normals = mesh.getNormals();
+			int count = mesh.getIndexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -257,11 +256,11 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			}
 		}
 
-		bool has_uvs = geom.getUVs() != nullptr;
+		bool has_uvs = mesh.getUVs() != nullptr;
 		if (has_uvs)
 		{
-			const ofbx::Vec2* uvs = geom.getUVs();
-			int count = geom.getIndexCount();
+			const ofbx::Vec2* uvs = mesh.getUVs();
+			int count = mesh.getIndexCount();
 
 			for (int i = 0; i < count; ++i)
 			{
@@ -270,8 +269,8 @@ bool saveAsOBJ(ofbx::IScene& scene, const char* path)
 			}
 		}
 
-		const int* faceIndices = geom.getFaceIndices();
-		int index_count = geom.getIndexCount();
+		const int* faceIndices = mesh.getFaceIndices();
+		int index_count = mesh.getIndexCount();
 		bool new_face = true;
 		for (int i = 0; i < index_count; ++i)
 		{
@@ -678,7 +677,7 @@ INT WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 		szArgList = CommandLineToArgvW(GetCommandLineW(), &argCount);
 		if (argCount == 1)
 		{
-			strcpy(filepath,"b.fbx");
+			strcpy(filepath,"swat.fbx");
 		}
 		for (int i = 1; i < argCount; i++)
 		{
