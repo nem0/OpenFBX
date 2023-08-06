@@ -677,7 +677,7 @@ INT WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 		szArgList = CommandLineToArgvW(GetCommandLineW(), &argCount);
 		if (argCount == 1)
 		{
-			strcpy(filepath,"swat.fbx");
+			strcpy(filepath,"a.fbx");
 		}
 		for (int i = 1; i < argCount; i++)
 		{
