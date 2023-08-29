@@ -7,6 +7,7 @@
 Lightweight open source FBX importer. Used in [Lumix Engine](https://github.com/nem0/lumixengine) and [Flax Engine](https://flaxengine.com/). It's an *almost* full-featured importer. It can load geometry (with uvs, normals, tangents, colors), skeletons, animations, blend shapes, materials, textures, cameras and lights.
 
 [UFBX](https://github.com/bqqbarbhg/ufbx) is similar project in C.
+Using [libdeflate](https://github.com/ebiggers/libdeflate) for decompression.
 
 ## Use the library in your own project
 
