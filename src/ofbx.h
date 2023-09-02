@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 
 namespace ofbx
 {
@@ -713,7 +714,7 @@ struct IScene
 	virtual float getSceneFrameRate() const = 0;
 	virtual const GlobalSettings* getGlobalSettings() const = 0;
 
-public:
+protected:
 	virtual ~IScene() {}
 };
 
@@ -725,3 +726,16 @@ i64 secondsToFbxTime(double value);
 
 
 } // namespace ofbx
+
+template <> struct ::std::default_delete<ofbx::IScene>
+{
+	default_delete() = default;
+	template <class U> constexpr default_delete(default_delete<U>) noexcept {}
+	void operator()(ofbx::IScene* scene) const noexcept
+	{
+		if (scene)
+		{
+			scene->destroy();
+		}
+	}
+};
