@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 
 namespace ofbx
 {
@@ -727,6 +726,9 @@ i64 secondsToFbxTime(double value);
 
 } // namespace ofbx
 
+#ifdef OFBX_DEFAULT_DELETER
+#include <memory>
+
 template <> struct ::std::default_delete<ofbx::IScene>
 {
 	default_delete() = default;
@@ -739,3 +741,4 @@ template <> struct ::std::default_delete<ofbx::IScene>
 		}
 	}
 };
+#endif
