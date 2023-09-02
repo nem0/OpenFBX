@@ -713,7 +713,7 @@ struct IScene
 	virtual float getSceneFrameRate() const = 0;
 	virtual const GlobalSettings* getGlobalSettings() const = 0;
 
-protected:
+public:
 	virtual ~IScene() {}
 };
 
