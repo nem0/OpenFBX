@@ -60,17 +60,17 @@ function defaultConfigurations()
 	configuration "Debug"
 		targetdir(BINARY_DIR .. "Debug")
 		defines { "DEBUG", "_DEBUG" }
-		flags { "Symbols", "WinMain" }
+		flags { "Symbols" }
 
 	configuration "Release"
 		targetdir(BINARY_DIR .. "Release")
 		defines { "NDEBUG" }
-		flags { "Optimize", "WinMain" }
+		flags { "Optimize" }
 
 	configuration "RelWithDebInfo"
 		targetdir(BINARY_DIR .. "RelWithDebInfo")
 		defines { "NDEBUG" }
-		flags { "Symbols", "Optimize", "WinMain" }
+		flags { "Symbols", "Optimize" }
 
 	configuration "linux"
 		buildoptions { "-std=c++14" }
@@ -289,6 +289,7 @@ project "openfbx"
 
 	debugdir ("../runtime")
 	
+	includedirs { "../demo/imgui" }
 	files { "../src/**.c", "../src/**.cpp", "../demo/**.cpp", "../demo/**.h", "../src/**.h", "genie.lua" }
 	defaultConfigurations()
 
