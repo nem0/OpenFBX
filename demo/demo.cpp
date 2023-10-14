@@ -15,7 +15,7 @@ const ofbx::Object* g_selected_object = nullptr;
 template <int N>
 void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 {
-	char tmp[128];
+	char tmp[127];
 	switch (prop.getType())
 	{
 		case ofbx::IElementProperty::DOUBLE: sprintf_s(tmp, "%f", prop.getValue().toDouble()); break;
@@ -30,7 +30,7 @@ void catProperty(char(&out)[N], const ofbx::IElementProperty& prop)
 void gui(const ofbx::IElement& parent) {
 	for (const ofbx::IElement* element = parent.getFirstChild(); element; element = element->getSibling()) {
 		auto id = element->getID();
-		char label[128];
+		char label[1024];
 		id.toString(label);
 		strcat_s(label, " (");
 		ofbx::IElementProperty* prop = element->getFirstProperty();
