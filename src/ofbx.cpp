@@ -1164,6 +1164,7 @@ struct GeometryDataImpl : GeometryData {
 		T res = attr;
 		if (!attr.values.empty() && attr.mapping == VertexDataMapping::BY_VERTEX && attr.indices.empty()) {
 			res.indices = positions.indices.data();
+			res.count = int(positions.indices.size());
 		}
 		return res;
 	}
