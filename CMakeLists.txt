@@ -6,10 +6,10 @@ set(CMAKE_CXX_STANDARD 11)
 
 include(GNUInstallDirs)
 
-find_package(miniz REQUIRED)
+find_package(libdeflate REQUIRED)
 
 add_library(OpenFBX src/ofbx.cpp)
-target_link_libraries(OpenFBX PRIVATE miniz::miniz)
+target_link_libraries(OpenFBX PRIVATE libdeflate::libdeflate_static)
 
 target_include_directories(OpenFBX
         PUBLIC
