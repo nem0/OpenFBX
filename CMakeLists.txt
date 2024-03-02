@@ -9,7 +9,7 @@ include(GNUInstallDirs)
 find_package(libdeflate REQUIRED)
 
 add_library(OpenFBX src/ofbx.cpp)
-target_link_libraries(OpenFBX PRIVATE libdeflate::libdeflate_static)
+target_link_libraries(OpenFBX PRIVATE $<IF:$<TARGET_EXISTS:libdeflate::libdeflate_shared>,libdeflate::libdeflate_shared,libdeflate::libdeflate_static>)
 
 target_include_directories(OpenFBX
         PUBLIC
