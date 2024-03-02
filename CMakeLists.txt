@@ -17,7 +17,9 @@ target_include_directories(OpenFBX
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>)
 
 target_compile_definitions(OpenFBX PRIVATE _LARGEFILE64_SOURCE)
-set_target_properties(OpenFBX PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set_target_properties(OpenFBX PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+        POSITION_INDEPENDENT_CODE ON)
 
 install(TARGETS OpenFBX EXPORT openfbxTargets
         RUNTIME DESTINATION bin
