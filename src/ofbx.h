@@ -495,6 +495,8 @@ struct Vec2Attributes {
 	const int* indices = nullptr;
 	int count = 0;
 
+	Vec2Attributes(const Vec2* v, const int* i, int c) : values(v), indices(i), count(c) {}
+
 	Vec2 get(int i) const { return indices ? values[indices[i]] : values[i]; }
 };
 
@@ -504,6 +506,8 @@ struct Vec3Attributes {
 	int count = 0;
 	int values_count = 0;
 
+	Vec3Attributes(const Vec3* v, const int* i, int c, int vc) : values(v), indices(i), count(c), values_count(vc) {}
+
 	Vec3 get(int i) const { return indices ? values[indices[i]] : values[i]; }
 };
 
@@ -511,6 +515,8 @@ struct Vec4Attributes {
 	const Vec4* values = nullptr;
 	const int* indices = nullptr;
 	int count = 0;
+
+	Vec4Attributes(const Vec4* v, const int* i, int c) : values(v), indices(i), count(c) {}
 
 	Vec4 get(int i) const { return indices ? values[indices[i]] : values[i]; }
 };
