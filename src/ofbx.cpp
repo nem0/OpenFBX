@@ -2229,7 +2229,7 @@ struct AnimationLayerImpl : AnimationLayer
 	std::map<std::string, ofbx::IElementProperty*, std::less<>> allProperties;
 	mapProperties(element, allProperties);
 */
-void mapProperties(const ofbx::IElement& parent, std::map<std::string, ofbx::IElementProperty*, std::less<>>& propMap)
+void mapProperties(const ofbx::IElement& parent, std::map<std::string, ofbx::IElementProperty*, std::less<std::string>>& propMap)
 {
 	for (const ofbx::IElement* element = parent.getFirstChild(); element; element = element->getSibling())
 	{
@@ -3762,6 +3762,7 @@ static bool parseObjects(const Element& root, Scene& scene, u16 flags, Allocator
 		struct PostprocessJob {
 			Object* obj;
 			bool error = false;
+			PostprocessJob(Object* o) : obj(o) {}
 		};
 		std::vector<PostprocessJob> postprocess_jobs;
 		for (auto iter : scene.m_object_map)
