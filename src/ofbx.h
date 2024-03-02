@@ -52,7 +52,7 @@ constexpr LoadFlags operator|(LoadFlags lhs, LoadFlags rhs)
 	return static_cast<LoadFlags>(static_cast<u16>(lhs) | static_cast<u16>(rhs));
 }
 
-constexpr LoadFlags& operator|=(LoadFlags& lhs, LoadFlags rhs)
+inline LoadFlags& operator|=(LoadFlags& lhs, LoadFlags rhs)
 {
 	return lhs = lhs | rhs;
 }
