@@ -20,6 +20,12 @@
 namespace ofbx
 {
 
+template<typename T> static T read_value(const u8* value_ptr) {
+	T value;
+	memcpy(&value, value_ptr, sizeof(T));
+	return value;
+}
+
 static int decodeIndex(int idx)
 {
 	return (idx < 0) ? (-idx - 1) : idx;
@@ -417,7 +423,7 @@ bool DataView::operator==(const char* rhs) const
 		++c;
 		++c2;
 	}
-	return *c2 == '\0' || c2 == (const char*)end && *c == '\0';
+	return (*c2 == '\0' || c2 == (const char*)end) && *c == '\0';
 }
 
 
@@ -775,7 +781,8 @@ static OptionalError<Element*> readElement(Cursor* cursor, u32 version, Allocato
 
 static bool isEndLine(const Cursor& cursor)
 {
-	return *cursor.current == '\n' || *cursor.current == '\r' && cursor.current + 1 < cursor.end && *(cursor.current + 1) != '\n';
+	return (*cursor.current == '\n')
+    	|| (*cursor.current == '\r' && cursor.current + 1 < cursor.end && *(cursor.current + 1) != '\n');
 }
 
 
@@ -2903,8 +2910,8 @@ static bool parseMemory(const Property& property, T* out, int max_size_bytes) {
 	const u8* data = property.value.begin + sizeof(u32) * 3;
 	if (data > property.value.end) return false;
 
-	u32 enc = *(const u32*)(property.value.begin + 4);
-	u32 len = *(const u32*)(property.value.begin + 8);
+	u32 enc = read_value<u32>(property.value.begin + 4);
+	u32 len = read_value<u32>(property.value.begin + 8);
 
 	if (enc == 0) {
 		if ((int)len > max_size_bytes) return false;
@@ -3472,7 +3479,7 @@ static bool parseObjects(const Element& root, Scene& scene, u16 flags, Allocator
 		{
 			obj = allocator.allocate<AnimationCurveNodeImpl>(scene, *iter.second.element);
 		}
-		else if (iter.second.element->id == "Deformer" && !ignore_blend_shapes)
+		else if (iter.second.element->id == "Deformer")
 		{
 			IElementProperty* class_prop = iter.second.element->getProperty(2);
 			if (!class_prop) class_prop = iter.second.element->getProperty(1);
@@ -3525,7 +3532,7 @@ static bool parseObjects(const Element& root, Scene& scene, u16 flags, Allocator
 						obj = mesh;
 					}
 				}
-				else if (class_prop->getValue() == "LimbNode" && !ignore_limbs)
+				else if ((class_prop->getValue() == "LimbNode" || class_prop->getValue() == "Root") && !ignore_limbs)
 					obj = allocator.allocate<LimbNodeImpl>(scene, *iter.second.element);
 				else
 					obj = allocator.allocate<NullImpl>(scene, *iter.second.element);

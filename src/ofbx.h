@@ -1,20 +1,16 @@
 #pragma once
 
+#include <cstdint>
 
 namespace ofbx
 {
 
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-#ifdef _WIN32
-	typedef long long i64;
-	typedef unsigned long long u64;
-#else
-	typedef long i64;
-	typedef unsigned long u64;
-#endif
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef int64_t i64;
+typedef uint64_t u64;
 
 static_assert(sizeof(u8) == 1, "u8 is not 1 byte");
 static_assert(sizeof(u32) == 4, "u32 is not 4 bytes");
@@ -70,7 +66,6 @@ struct FVec4 { float x, y, z, w; };
 struct FMatrix { float m[16]; };
 struct FQuat{ float x, y, z, w; };
 
-#define OFBX_SINGLE_PRECISION
 #ifdef OFBX_SINGLE_PRECISION
 	// use floats for vertices, normals, uvs, ...
 	using Vec2 = FVec2;
