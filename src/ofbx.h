@@ -756,7 +756,7 @@ protected:
 };
 
 
-IScene* load(const u8* data, int size, u16 flags, JobProcessor job_processor = nullptr, void* job_user_ptr = nullptr);
+IScene* load(const u8* data, size_t size, u16 flags, JobProcessor job_processor = nullptr, void* job_user_ptr = nullptr);
 const char* getError();
 double fbxTimeToSeconds(i64 value);
 i64 secondsToFbxTime(double value);
