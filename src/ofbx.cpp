@@ -4046,7 +4046,7 @@ bool Scene::finalize() {
 	return true;
 }
 
-IScene* load(const u8* data, u64 size, u16 flags, JobProcessor job_processor, void* job_user_ptr)
+IScene* load(const u8* data, usize size, u16 flags, JobProcessor job_processor, void* job_user_ptr)
 {
 	std::unique_ptr<Scene> scene(new Scene());
 	scene->m_data.resize(size);
