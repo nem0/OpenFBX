@@ -70,7 +70,7 @@ struct FVec4 { float x, y, z, w; };
 struct FMatrix { float m[16]; };
 struct FQuat{ float x, y, z, w; };
 
-#ifdef OFBX_SINGLE_PRECISION
+#ifndef OFBX_DOUBLE_PRECISION
 	// use floats for vertices, normals, uvs, ...
 	using Vec2 = FVec2;
 	using Vec3 = FVec3;
