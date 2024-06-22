@@ -592,7 +592,7 @@ static bool decompress(const u8* in, size_t in_size, u8* out, size_t out_size)
 template <typename T> static OptionalError<T> read(Cursor* cursor)
 {
 	if (cursor->current + sizeof(T) > cursor->end) return Error("Reading past the end");
-	T value = *(const T*)cursor->current;
+	T value = read_value<T>(cursor->current);
 	cursor->current += sizeof(T);
 	return value;
 }
