@@ -12,7 +12,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#if __cplusplus >= 202002L
+#if __cplusplus >= 202002L && defined(__cpp_lib_bit_cast)
 #include <bit> // for std::bit_cast (C++20 and later)
 #endif
 #include <map>
@@ -1051,7 +1051,7 @@ static OptionalError<Element*> tokenize(const u8* data, size_t size, u32& versio
 	cursor.current = data;
 	cursor.end = data + size;
 
-#if __cplusplus >= 202002L
+#if __cplusplus >= 202002L && defined(__cpp_lib_bit_cast)
 	const Header* header = std::bit_cast<const Header*>(cursor.current);
 #else
 	Header header_temp;
