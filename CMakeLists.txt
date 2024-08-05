@@ -5,16 +5,39 @@ project(OpenFBX LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 
 include(GNUInstallDirs)
+include(FetchContent)
 
-find_package(libdeflate REQUIRED)
+# Fetch libdeflate
+FetchContent_Declare(
+        libdeflate
+        GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git
+        GIT_TAG v1.10  # Beispiel-Tag, ändere dies auf die gewünschte Version
+)
+FetchContent_MakeAvailable(libdeflate)
+
+# Define the targets for libdeflate
+add_library(libdeflate_static STATIC IMPORTED)
+set_target_properties(libdeflate_static PROPERTIES
+        IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
+)
+
+add_library(libdeflate_shared SHARED IMPORTED)
+set_target_properties(libdeflate_shared PROPERTIES
+        IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.so"
+        INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
+)
 
 add_library(OpenFBX src/ofbx.cpp)
-target_link_libraries(OpenFBX PRIVATE $<IF:$<TARGET_EXISTS:libdeflate::libdeflate_shared>,libdeflate::libdeflate_shared,libdeflate::libdeflate_static>)
+target_link_libraries(OpenFBX PRIVATE libdeflate_static)
 
 target_include_directories(OpenFBX
         PUBLIC
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        PRIVATE
+        ${libdeflate_SOURCE_DIR}
+)
 
 target_compile_definitions(OpenFBX PRIVATE _LARGEFILE64_SOURCE)
 set_target_properties(OpenFBX PROPERTIES
