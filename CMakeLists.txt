@@ -7,26 +7,30 @@ set(CMAKE_CXX_STANDARD 11)
 include(GNUInstallDirs)
 include(FetchContent)
 
-# Fetch libdeflate
 FetchContent_Declare(
         libdeflate
         GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git
-        GIT_TAG v1.10  # Beispiel-Tag, ändere dies auf die gewünschte Version
+        GIT_TAG master
 )
 FetchContent_MakeAvailable(libdeflate)
 
-# Define the targets for libdeflate
-add_library(libdeflate_static STATIC IMPORTED)
-set_target_properties(libdeflate_static PROPERTIES
-        IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.a"
-        INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
-)
+# Check if libdeflate_static is already defined
+if(NOT TARGET libdeflate_static)
+    add_library(libdeflate_static STATIC IMPORTED)
+    set_target_properties(libdeflate_static PROPERTIES
+            IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.a"
+            INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
+    )
+endif()
 
-add_library(libdeflate_shared SHARED IMPORTED)
-set_target_properties(libdeflate_shared PROPERTIES
-        IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.so"
-        INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
-)
+# Check if libdeflate_shared is already defined
+if(NOT TARGET libdeflate_shared)
+    add_library(libdeflate_shared SHARED IMPORTED)
+    set_target_properties(libdeflate_shared PROPERTIES
+            IMPORTED_LOCATION "${libdeflate_SOURCE_DIR}/libdeflate.so"
+            INTERFACE_INCLUDE_DIRECTORIES "${libdeflate_SOURCE_DIR}"
+    )
+endif()
 
 add_library(OpenFBX src/ofbx.cpp)
 target_link_libraries(OpenFBX PRIVATE libdeflate_static)
