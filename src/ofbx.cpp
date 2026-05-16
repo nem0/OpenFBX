@@ -3540,37 +3540,61 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 		if (!props) return;
 	}
 
+	auto toCoordinateAxis = [](int axis, int sign){
+		const bool positive = sign > 0;
+		switch (axis) {
+			case 0: return positive ? CoordinateAxis::POSITIVE_X : CoordinateAxis::NEGATIVE_X;
+			case 1: return positive ? CoordinateAxis::POSITIVE_Y : CoordinateAxis::NEGATIVE_Y;
+			case 2: return positive ? CoordinateAxis::POSITIVE_Z : CoordinateAxis::NEGATIVE_Z;
+			default: return CoordinateAxis::UNKNOWN;
+		}
+	};
+
+	int UpAxis = 3, UpAxisSign = 2;
+	int FrontAxis = 3, FrontAxisSign = 2;
+	int CoordAxis = 3, CoordAxisSign = 2;
+	int OriginalUpAxis = 3, OriginalUpAxisSign = 2;
+
 	for (Element* node = props->child; node; node = node->sibling) {
 		if (!node->first_property) continue;
 
-		#define get_property(name, field, type, getter) if(node->first_property->value == name) \
-		{ \
+		#define get_property_raw(name, output_name, type, getter) if(node->first_property->value == name) \
+		do { \
 			IElementProperty* prop = node->getProperty(scene->version <= 6100 ? 3 : 4); \
-			if (prop) \
-			{ \
+			if (prop) { \
+				DataView value = prop->getValue(); \
+				output_name = (type)value.getter(); \
+			} \
+		} while (false)
+
+		#define get_property(name, field, type, getter) if(node->first_property->value == name) \
+		do { \
+			IElementProperty* prop = node->getProperty(scene->version <= 6100 ? 3 : 4); \
+			if (prop) { \
 				DataView value = prop->getValue(); \
 				scene->m_settings.field = (type)value.getter(); \
 			} \
-		}
+		} while (false)
 
 		#define get_time_property(name, field, type, getter) if(node->first_property->value == name) \
-		{ \
+		do { \
 			IElementProperty* prop = node->getProperty(scene->version <= 6100 ? 3 : 4); \
 			if (prop) \
 			{ \
 				DataView value = prop->getValue(); \
 				scene->m_settings.field = fbxTimeToSeconds((type)value.getter()); \
 			} \
-		}
+		} while (false)
 
-		get_property("UpAxis", UpAxis, UpVector, toInt);
-		get_property("UpAxisSign", UpAxisSign, int, toInt);
-		get_property("FrontAxis", FrontAxis, int, toInt);
-		get_property("FrontAxisSign", FrontAxisSign, int, toInt);
-		get_property("CoordAxis", CoordAxis, CoordSystem, toInt);
-		get_property("CoordAxisSign", CoordAxisSign, int, toInt);
-		get_property("OriginalUpAxis", OriginalUpAxis, int, toInt);
-		get_property("OriginalUpAxisSign", OriginalUpAxisSign, int, toInt);
+		get_property_raw("UpAxis", UpAxis, int, toInt);
+		get_property_raw("UpAxisSign", UpAxisSign, int, toInt);
+		get_property_raw("FrontAxis", FrontAxis, int, toInt);
+		get_property_raw("FrontAxisSign", FrontAxisSign, int, toInt);
+		get_property_raw("CoordAxis", CoordAxis, int, toInt);
+		get_property_raw("CoordAxisSign", CoordAxisSign, int, toInt);
+		get_property_raw("OriginalUpAxis", OriginalUpAxis, int, toInt);
+		get_property_raw("OriginalUpAxisSign", OriginalUpAxisSign, int, toInt);
+
 		get_property("UnitScaleFactor", UnitScaleFactor, float, toDouble);
 		get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float, toDouble);
 		get_time_property("TimeSpanStart", TimeSpanStart, u64, toU64);
@@ -3578,11 +3602,16 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 		get_property("TimeMode", TimeMode, FrameRate, toInt);
 		get_property("CustomFrameRate", CustomFrameRate, float, toDouble);
 
+		#undef get_property_raw
 		#undef get_property
 		#undef get_time_property
-
-		scene->m_scene_frame_rate = getFramerateFromTimeMode(scene->m_settings.TimeMode, scene->m_settings.CustomFrameRate);
 	}
+
+	scene->m_settings.FrontAxis = toCoordinateAxis(FrontAxis, FrontAxisSign);
+	scene->m_settings.UpAxis = toCoordinateAxis(UpAxis, UpAxisSign);
+	scene->m_settings.CoordAxis = toCoordinateAxis(CoordAxis, CoordAxisSign);
+	scene->m_settings.OriginalUpAxis = toCoordinateAxis(OriginalUpAxis, OriginalUpAxisSign);
+	scene->m_scene_frame_rate = getFramerateFromTimeMode(scene->m_settings.TimeMode, scene->m_settings.CustomFrameRate);
 }
 
 static void parseHeaders(const Element& root, Scene* scene)

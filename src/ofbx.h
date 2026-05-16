@@ -662,20 +662,14 @@ struct TakeInfo
 };
 
 
-// Specifies which canonical axis represents up in the system (typically Y or Z).
-enum UpVector
-{
-	UpVector_AxisX = 0,
-	UpVector_AxisY = 1,
-	UpVector_AxisZ = 2
-};
-
-
-// Specifies the third vector of the system.
-enum CoordSystem
-{
-	CoordSystem_RightHanded = 0,
-	CoordSystem_LeftHanded = 1
+enum class CoordinateAxis : u32 {
+	POSITIVE_X,
+	NEGATIVE_X,
+	POSITIVE_Y,
+	NEGATIVE_Y,
+	POSITIVE_Z,
+	NEGATIVE_Z,
+	UNKNOWN
 };
 
 
@@ -702,16 +696,10 @@ enum FrameRate
 
 struct GlobalSettings
 {
-	UpVector UpAxis = UpVector_AxisY;
-	int UpAxisSign = 1;
-	// this seems to be 1-2 in Autodesk (odd/even parity), and 0-2 in Blender (axis as in UpAxis)
-	// I recommend to ignore FrontAxis and use just UpVector
-	int FrontAxis = 1; 
-	int FrontAxisSign = 1;
-	CoordSystem CoordAxis = CoordSystem_RightHanded;
-	int CoordAxisSign = 1;
-	int OriginalUpAxis = 0;
-	int OriginalUpAxisSign = 1;
+	CoordinateAxis UpAxis = CoordinateAxis::UNKNOWN;
+	CoordinateAxis FrontAxis = CoordinateAxis::UNKNOWN;
+	CoordinateAxis CoordAxis = CoordinateAxis::UNKNOWN;
+	CoordinateAxis OriginalUpAxis = CoordinateAxis::UNKNOWN;
 	float UnitScaleFactor = 1;
 	float OriginalUnitScaleFactor = 1;
 	double TimeSpanStart = 0L;
